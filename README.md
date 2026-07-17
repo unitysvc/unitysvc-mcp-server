@@ -33,10 +33,35 @@ uv run mcp dev src/unitysvc_mcp/server.py
 For a hosted Streamable HTTP process:
 
 ```bash
-uv run unitysvc-mcp-server
+uv run uvicorn unitysvc_mcp.server:app --host 0.0.0.0 --port 8000
+```
+
+Health check:
+
+```bash
+curl http://localhost:8000/healthz
+```
+
+MCP endpoint:
+
+```text
+http://localhost:8000/mcp
 ```
 
 The MCP SDK v2 beta is pinned in `pyproject.toml`. Revisit the pin when v2 reaches a stable release.
+
+## Container
+
+```bash
+docker build -t unitysvc-mcp-server .
+docker run --rm -p 8000:8000 --env-file .env unitysvc-mcp-server
+```
+
+Images are published to GitHub Container Registry:
+
+```text
+ghcr.io/unitysvc/unitysvc-mcp-server
+```
 
 ## Authentication Model
 
