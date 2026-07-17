@@ -1,0 +1,33 @@
+[project]
+name = "unitysvc-mcp-server"
+version = "0.1.0"
+description = "UnitySVC MCP server starter"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27,<1",
+    "mcp[cli]==2.0.0b1",
+    "pydantic>=2,<3",
+    "pydantic-settings>=2,<3",
+]
+
+[project.scripts]
+unitysvc-mcp-server = "unitysvc_mcp.server:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8,<9",
+    "pytest-asyncio>=0.23,<1",
+    "ruff>=0.6,<1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
