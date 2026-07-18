@@ -33,7 +33,7 @@ async def lifespan(server: MCPServer[AppContext]) -> AsyncIterator[AppContext]:
         yield AppContext(
             http_client=http_client,
             auth=AuthService(settings, http_client),
-            unitysvc=UnitySvcClient(settings, http_client),
+            unitysvc=UnitySvcClient(settings),
         )
 
 

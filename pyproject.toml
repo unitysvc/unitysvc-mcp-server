@@ -9,7 +9,11 @@ dependencies = [
     # Official UnitySVC SDKs. Both ship async clients that take an explicit
     # api_key, so each MCP request can use its own caller's token rather than
     # a shared server-side credential.
-    "unitysvc-py>=0.1.15",
+    #
+    # >=0.1.16 is required: it allows constructing a client without an
+    # api_key, which is how anonymous catalog browsing works now that the
+    # customer API serves it (unitysvc#1610).
+    "unitysvc-py>=0.1.16",
     "unitysvc-sellers>=0.2.19",
     "mcp[cli]==2.0.0b1",
     "pydantic>=2,<3",

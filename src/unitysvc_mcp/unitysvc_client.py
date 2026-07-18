@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
 from unitysvc import AsyncClient as CustomerClient
 from unitysvc_sellers import AsyncClient as SellerClient
 
@@ -13,17 +12,18 @@ from .settings import Settings
 class UnitySvcClient:
     """UnitySVC API adapter backed by the official SDKs.
 
-    Authenticated calls go through `unitysvc` / `unitysvc_sellers`, constructed
-    per request with the caller's own token — the server holds no credential of
-    its own, so a caller can never see more than their token allows.
+    Every call is made with the caller's own token, constructed per request —
+    the server holds no credential of its own, so a caller can never see more
+    than their token allows.
 
-    Anonymous catalog reads are the one exception: the SDKs require an api_key,
-    so those hit the public host directly with no auth.
+    Anonymous callers get the same code path with no token at all: since
+    unitysvc#1610 the customer API serves catalog reads without credentials,
+    and unitysvc-py >=0.1.16 can be constructed without an api_key. That
+    replaced a hand-rolled httpx path against a separate public host.
     """
 
-    def __init__(self, settings: Settings, http_client: httpx.AsyncClient) -> None:
+    def __init__(self, settings: Settings) -> None:
         self._settings = settings
-        self._http_client = http_client
 
     async def list_catalog_services(
         self,
@@ -33,16 +33,15 @@ class UnitySvcClient:
         limit: int = 25,
         cursor: str | None = None,
     ) -> ServicesPage:
-        """List catalog services for an anonymous or customer caller."""
+        """List catalog services for an anonymous or customer caller.
 
-        if not principal.token:
-            return await self._list_public_services(limit=limit, cursor=cursor)
-
-        # Customer-visible services are addressed per group, so with no group
-        # named, fall back to the platform-wide collection that the marketplace
-        # tree itself is rooted on.
+        Catalog discovery is group-rooted, so with no group named this falls
+        back to the platform-wide collection the marketplace tree is rooted on.
+        """
         group_name = group or self._settings.default_catalog_group or "all_services"
 
+        # api_key=None means anonymous; the SDK then sends no Authorization
+        # header, which is what the customer API reads as an anonymous caller.
         async with CustomerClient(
             api_key=principal.token,
             base_url=str(self._settings.customer_api_url),
@@ -50,7 +49,7 @@ class UnitySvcClient:
             page = await client.groups.services(group_name, cursor=cursor, limit=limit)
 
         return ServicesPage(
-            role="customer",
+            role="customer" if principal.token else "anonymous",
             data=[self._summary_from_sdk(item) for item in page.data],
             count=len(page.data),
             next_cursor=page.next_cursor,
@@ -82,44 +81,6 @@ class UnitySvcClient:
             next_cursor=page.next_cursor,
         )
 
-    async def _list_public_services(self, *, limit: int, cursor: str | None) -> ServicesPage:
-        """Read the anonymous public catalog.
-
-        This route lives on the `frontend` BFF deployment (reached via the site
-        host's ingress), which is the only one mounting it unauthenticated. It
-        paginates by offset rather than keyset, so the opaque `next_cursor`
-        carried here is just the next `skip`.
-        """
-        skip = self._decode_offset(cursor)
-        response = await self._http_client.get(
-            f"{str(self._settings.public_api_url).rstrip('/')}/services/",
-            params={"skip": skip, "limit": limit},
-            timeout=20,
-        )
-        response.raise_for_status()
-        payload = response.json()
-
-        raw = payload.get("data") if isinstance(payload, dict) else None
-        rows = [row for row in raw if isinstance(row, dict)] if isinstance(raw, list) else []
-        total = payload.get("count") if isinstance(payload, dict) else None
-
-        next_offset = skip + len(rows)
-        has_more = isinstance(total, int) and next_offset < total
-        return ServicesPage(
-            role="anonymous",
-            data=[self._summary_from_mapping(row) for row in rows],
-            count=total if isinstance(total, int) else len(rows),
-            next_cursor=str(next_offset) if has_more else None,
-        )
-
-    def _decode_offset(self, cursor: str | None) -> int:
-        if not cursor:
-            return 0
-        try:
-            return max(0, int(cursor))
-        except ValueError as exc:
-            raise ValueError("Invalid cursor for the public catalog listing") from exc
-
     def _summary_from_sdk(self, item: Any) -> ServiceSummary:
         """Build a summary from an SDK model.
 
@@ -134,20 +95,6 @@ class UnitySvcClient:
             service_type=self._clean(getattr(item, "service_type", None)),
             gateway_type=self._clean(getattr(item, "gateway_type", None)),
             status=self._clean(getattr(item, "status", None)),
-            currency=self._clean(getattr(item, "currency", None)),
-        )
-
-    def _summary_from_mapping(self, row: dict[str, Any]) -> ServiceSummary:
-        tags = row.get("tags")
-        return ServiceSummary(
-            id=self._clean(row.get("id")),
-            name=str(row.get("name") or ""),
-            display_name=self._clean(row.get("display_name")),
-            service_type=self._clean(row.get("service_type")),
-            gateway_type=self._clean(row.get("gateway_type")),
-            status=self._clean(row.get("status")),
-            currency=self._clean(row.get("currency")),
-            tags=[str(tag) for tag in tags] if isinstance(tags, list) else [],
         )
 
     def _clean(self, value: Any) -> str | None:
