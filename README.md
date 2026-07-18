@@ -16,7 +16,7 @@ authorization stay in the UnitySVC backend.
 > | Market + seller listing tools via the official SDKs | ✅ implemented |
 > | Anonymous marketplace browsing (no credentials) | ✅ implemented |
 > | stdio transport (default) and HTTP (opt-in) | ✅ implemented |
-> | Credentials from `UNITYSVC_API_KEY` / `UNITYSVC_SELLER_API_KEY` | ✅ implemented |
+> | Credentials from `UNITYSVC_SELLER_API_KEY` | ✅ implemented |
 > | Tools split by mode, advertised on credentials present | ✅ implemented |
 > | Published to PyPI | ✅ v0.1.0 |
 > | `mcp.unitysvc.com` deployed | ⏳ not yet deployed |
@@ -58,7 +58,7 @@ This is the part worth reading carefully.
         │  populates the child process environment at spawn
         ▼
    unitysvc-mcp-server  (subprocess on your machine)
-        │  UNITYSVC_API_KEY / UNITYSVC_SELLER_API_KEY
+        │  UNITYSVC_SELLER_API_KEY
         ▼  HTTPS, directly
    api.unitysvc.com  /  seller.unitysvc.com
 ```
@@ -72,12 +72,12 @@ This is the part worth reading carefully.
 
 **Exporting the variable in your shell is not enough.** MCP clients pass only a *safelist*
 of variables to a spawned server — `HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM`, `USER` — so
-`UNITYSVC_API_KEY` from your shell profile will **not** reach the process. You must declare
+`UNITYSVC_SELLER_API_KEY` from your shell profile will **not** reach the process. You must declare
 it in the MCP configuration. Use variable expansion so the value stays in your shell rather
 than being written into a file:
 
 ```jsonc
-"env": { "UNITYSVC_API_KEY": "${UNITYSVC_API_KEY}" }
+"env": { "UNITYSVC_SELLER_API_KEY": "${UNITYSVC_SELLER_API_KEY}" }
 ```
 
 Which key you provide decides what you can do:
@@ -86,13 +86,12 @@ Which key you provide decides what you can do:
 |---|---|
 | nothing | marketplace browsing |
 | `UNITYSVC_SELLER_API_KEY` | marketplace browsing + your seller listings |
-| `UNITYSVC_API_KEY` | marketplace browsing — **no additional tools yet** |
 
-`UNITYSVC_API_KEY` currently unlocks nothing: the customer-side tools
-(enrollments, invoke) are not built, and marketplace browsing does not vary by
-customer — the backend serves that listing from a fixed `active` + `public`
-filter and ignores caller identity. The variable is recognised so it is ready
-when those tools land; until then, only a seller key changes what you can do.
+**There is no customer key.** Marketplace browsing does not vary by customer —
+the backend serves that listing from a fixed `active` + `public` filter and
+ignores caller identity — and the customer-side tools (enrollments, invoke) are
+not built. `UNITYSVC_API_KEY` arrives with those, in Phase 3 of
+unitysvc/unitysvc#1492; until then it is not read.
 
 There is no role to configure. The API key already encodes whether it is a customer or a
 seller key, and the backend enforces it.
@@ -108,7 +107,6 @@ use `mcp.unitysvc.com`, something is wrong — it does not accept one.
 
 ```bash
 claude mcp add unitysvc \
-  --env UNITYSVC_API_KEY="${UNITYSVC_API_KEY}" \
   --env UNITYSVC_SELLER_API_KEY="${UNITYSVC_SELLER_API_KEY}" \
   -- uvx --prerelease=allow --from unitysvc-mcp-server unitysvc-mcp-server
 ```
@@ -130,10 +128,7 @@ environment at launch and never written into the file:
       "type": "stdio",
       "command": "uvx",
       "args": ["--prerelease=allow", "--from", "unitysvc-mcp-server", "unitysvc-mcp-server"],
-      "env": {
-        "UNITYSVC_API_KEY": "${UNITYSVC_API_KEY}",
-        "UNITYSVC_SELLER_API_KEY": "${UNITYSVC_SELLER_API_KEY}"
-      }
+      "env": { "UNITYSVC_SELLER_API_KEY": "${UNITYSVC_SELLER_API_KEY}" }
     }
   }
 }
@@ -152,7 +147,7 @@ Omit either variable to run without that role's tools; omit both for anonymous b
       "type": "stdio",
       "command": "uvx",
       "args": ["--prerelease=allow", "--from", "unitysvc-mcp-server", "unitysvc-mcp-server"],
-      "env": { "UNITYSVC_API_KEY": "svcpass_..." }
+      "env": { "UNITYSVC_SELLER_API_KEY": "svcpass_..." }
     }
   }
 }
@@ -186,7 +181,6 @@ requirement — the prefix *is* the access rule:
 | Prefix | Requires | Registered | Today |
 |---|---|---|---|
 | `market_` | nothing | always | `market_list_services(group, limit, cursor)` |
-| `customer_` | `UNITYSVC_API_KEY` | when set | — (enrollments, invoke: planned) |
 | `seller_` | `UNITYSVC_SELLER_API_KEY` | when set | `seller_list_services(status, limit, cursor)` |
 
 So a prefixed tool needs that role's key and `market_` is free — a rule an agent can apply
@@ -211,7 +205,6 @@ tool was redundant with the two explicit ones in both modes.
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `UNITYSVC_API_KEY` | customer API key — recognised, but unlocks no tools yet | unset |
 | `UNITYSVC_SELLER_API_KEY` | seller API key | unset → seller tools unavailable |
 | `UNITYSVC_API_URL` | customer API base | `https://api.unitysvc.com/v1` |
 | `UNITYSVC_SELLER_API_URL` | seller API base | `https://seller.unitysvc.com/v1` |

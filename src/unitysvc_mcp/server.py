@@ -27,7 +27,7 @@ from mcp.server import MCPServer
 from .app_context import AppContext
 from .clients import CustomerApi, SellerApi
 from .settings import Settings, settings
-from .tools import customer, market, seller
+from .tools import market, seller
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +54,6 @@ def register_tools(server: MCPServer[AppContext], config: Settings = settings) -
     gets `market_*` only.
     """
     names = market.register(server)
-    if config.can_act_as_customer:
-        names += customer.register(server)
     if config.can_act_as_seller:
         names += seller.register(server)
     return names

@@ -137,15 +137,13 @@ async def test_seller_listing_uses_the_seller_host_and_token(
 async def test_market_tool_never_sends_a_customer_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The marketplace listing is always anonymous, even with a key configured.
+    """The marketplace listing is always anonymous.
 
     The backend serves it from a fixed active+public filter and ignores caller
-    identity, so a key cannot widen the result — it can only turn a working
-    call into a 401 when expired or wrong.
+    identity, so a key could not widen the result — only turn a working call
+    into a 401 when expired or wrong.
     """
     seen = _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=_page(SERVICE_ROW)))
-    monkeypatch.setenv("UNITYSVC_API_KEY", "svcpass_configured_but_unused")
-
     from unitysvc_mcp.tools import market
 
     assert "api_key" not in inspect.getsource(market.market_list_services)

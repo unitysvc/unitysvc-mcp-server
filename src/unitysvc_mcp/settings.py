@@ -23,7 +23,12 @@ class Settings(BaseSettings):
     # Presence is the only role signal. `svcpass_` keys already encode
     # `role_type`, and the backend authorises every call from the key, so the
     # server never infers a role of its own.
-    customer_api_key: str | None = Field(None, alias="UNITYSVC_API_KEY")
+    #
+    # Only the seller key exists today. A customer key would unlock nothing:
+    # the marketplace listing is served from a fixed active+public filter that
+    # ignores caller identity, and the customer-side tools (enrollments,
+    # invoke) are not built. UNITYSVC_API_KEY comes back with those, in Phase 3
+    # of unitysvc#1492 — carrying it now would be config that does nothing.
     seller_api_key: str | None = Field(None, alias="UNITYSVC_SELLER_API_KEY")
 
     # --- Backends ----------------------------------------------------------
@@ -58,11 +63,6 @@ class Settings(BaseSettings):
     )
 
     @property
-    def can_act_as_customer(self) -> bool:
-        """Whether authenticated customer operations are available."""
-        return bool(self.customer_api_key)
-
-    @property
     def can_act_as_seller(self) -> bool:
         """Whether seller operations are available."""
         return bool(self.seller_api_key)
@@ -70,15 +70,9 @@ class Settings(BaseSettings):
     @property
     def mode(self) -> str:
         """Human-readable summary of what this process can do, for logging."""
-        acting = [
-            name
-            for name, enabled in (
-                ("customer", self.can_act_as_customer),
-                ("seller", self.can_act_as_seller),
-            )
-            if enabled
-        ]
-        return f"context + acting as {'/'.join(acting)}" if acting else "context only (anonymous)"
+        if self.can_act_as_seller:
+            return "context + acting as seller"
+        return "context only (anonymous)"
 
 
 settings = Settings()

@@ -15,7 +15,6 @@ from unitysvc_mcp.settings import Settings
 
 MARKET_TOOLS = {"market_list_services"}
 SELLER_TOOLS = {"seller_list_services"}
-CUSTOMER_TOOLS: set[str] = set()  # Phase 3 of unitysvc#1492
 
 
 def _settings(**env: str) -> Settings:
@@ -31,7 +30,6 @@ def test_no_keys_registers_market_tools_only() -> None:
     config = _settings()
 
     assert _registered(config) == MARKET_TOOLS
-    assert not config.can_act_as_customer
     assert not config.can_act_as_seller
     assert config.mode == "context only (anonymous)"
 
@@ -41,27 +39,22 @@ def test_seller_key_adds_the_seller_tool() -> None:
 
     assert _registered(config) == MARKET_TOOLS | SELLER_TOOLS
     assert config.can_act_as_seller
-    assert not config.can_act_as_customer
 
 
-def test_customer_key_does_not_add_seller_tools() -> None:
-    """A customer key widens market visibility but grants no seller surface."""
-    config = _settings(UNITYSVC_API_KEY="svcpass_cust")
+def test_an_unrecognised_customer_key_changes_nothing() -> None:
+    """UNITYSVC_API_KEY unlocks nothing today and must not be silently honoured.
 
-    assert _registered(config) == MARKET_TOOLS | CUSTOMER_TOOLS
-    assert config.can_act_as_customer
-    assert not config.can_act_as_seller
-
-
-def test_both_keys_give_the_full_surface() -> None:
-    """A seller who is also a customer — handled without extra configuration."""
+    Customer-side tools are Phase 3 of unitysvc#1492; until they exist a
+    customer key would be config that appears to do something and does not.
+    """
     config = _settings(
         UNITYSVC_API_KEY="svcpass_cust",
         UNITYSVC_SELLER_API_KEY="svcpass_sell",
     )
 
     assert _registered(config) == MARKET_TOOLS | SELLER_TOOLS
-    assert config.mode == "context + acting as customer/seller"
+    assert config.mode == "context + acting as seller"
+    assert not hasattr(config, "customer_api_key")
 
 
 def test_transport_defaults_to_stdio() -> None:
@@ -114,8 +107,8 @@ def test_tool_names_match_their_module_prefix() -> None:
     """
     from mcp.server import MCPServer
 
-    from unitysvc_mcp.tools import customer, market, seller
+    from unitysvc_mcp.tools import market, seller
 
-    for module, prefix in ((market, "market_"), (customer, "customer_"), (seller, "seller_")):
+    for module, prefix in ((market, "market_"), (seller, "seller_")):
         for name in module.register(MCPServer("test")):
             assert name.startswith(prefix), f"{name} is not in the {prefix} module"
