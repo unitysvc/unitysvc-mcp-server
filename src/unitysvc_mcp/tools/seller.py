@@ -34,7 +34,7 @@ async def seller_list_services(
     """
     if not settings.seller_api_key:  # pragma: no cover - not registered without it
         raise RuntimeError("UNITYSVC_SELLER_API_KEY is not set")
-    return await app(ctx).unitysvc.list_seller_services(
+    return await app(ctx).seller_api.list_services(
         api_key=settings.seller_api_key,
         status=status,
         limit=limit,

@@ -25,16 +25,19 @@ from contextlib import asynccontextmanager
 from mcp.server import MCPServer
 
 from .app_context import AppContext
+from .clients import CustomerApi, SellerApi
 from .settings import Settings, settings
 from .tools import customer, market, seller
-from .unitysvc_client import UnitySvcClient
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(server: MCPServer[AppContext]) -> AsyncIterator[AppContext]:
-    yield AppContext(unitysvc=UnitySvcClient(settings))
+    yield AppContext(
+        customer_api=CustomerApi(settings),
+        seller_api=SellerApi(settings),
+    )
 
 
 mcp = MCPServer("UnitySVC MCP Server", lifespan=lifespan)

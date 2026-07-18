@@ -3,8 +3,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
+from unitysvc_mcp.clients import CustomerApi, SellerApi
 from unitysvc_mcp.settings import Settings
-from unitysvc_mcp.unitysvc_client import UnitySvcClient
 
 CUSTOMER_BASE = "https://customer.test/v1"
 SELLER_BASE = "https://seller.test/v1"
@@ -78,8 +78,8 @@ async def test_anonymous_catalog_sends_no_authorization(
     """
     seen = _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=_page(SERVICE_ROW)))
 
-    client = UnitySvcClient(_settings())
-    page = await client.list_market_services(limit=5)
+    client = CustomerApi(_settings())
+    page = await client.list_services(limit=5)
 
     request = seen[-1]
     assert str(request.url).startswith(CUSTOMER_BASE)
@@ -96,8 +96,8 @@ async def test_authenticated_catalog_uses_the_callers_token(
 ) -> None:
     seen = _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=_page(SERVICE_ROW)))
 
-    client = UnitySvcClient(_settings())
-    page = await client.list_market_services(api_key="svcpass_cust", limit=5)
+    client = CustomerApi(_settings())
+    page = await client.list_services(api_key="svcpass_cust", limit=5)
 
     assert seen[-1].headers["authorization"] == "Bearer svcpass_cust"
     assert page.role == "customer"
@@ -109,8 +109,8 @@ async def test_explicit_group_overrides_the_default(
 ) -> None:
     seen = _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=_page(SERVICE_ROW)))
 
-    client = UnitySvcClient(_settings())
-    await client.list_market_services(group="llm")
+    client = CustomerApi(_settings())
+    await client.list_services(group="llm")
 
     assert seen[-1].url.path.endswith("/groups/llm/services")
 
@@ -121,8 +121,8 @@ async def test_seller_listing_uses_the_seller_host_and_token(
 ) -> None:
     seen = _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=_page(SELLER_ROW)))
 
-    client = UnitySvcClient(_settings())
-    page = await client.list_seller_services(api_key="svcpass_sell", status="active", limit=5)
+    client = SellerApi(_settings())
+    page = await client.list_services(api_key="svcpass_sell", status="active", limit=5)
 
     request = seen[-1]
     assert str(request.url).startswith(SELLER_BASE)

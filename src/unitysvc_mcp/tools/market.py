@@ -36,7 +36,8 @@ async def market_list_services(
     With a customer API key configured, the listing is made as that customer,
     which can widen what is visible.
     """
-    return await app(ctx).unitysvc.list_market_services(
+    # The customer API, called with no key unless one is configured.
+    return await app(ctx).customer_api.list_services(
         api_key=settings.customer_api_key,
         group=group,
         limit=limit,

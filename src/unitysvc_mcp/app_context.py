@@ -10,12 +10,19 @@ from dataclasses import dataclass
 
 from mcp.server.mcpserver import Context
 
-from .unitysvc_client import UnitySvcClient
+from .clients import CustomerApi, SellerApi
 
 
 @dataclass
 class AppContext:
-    unitysvc: UnitySvcClient
+    """One client per API, so a tool names the API it talks to.
+
+    Both are always constructed — they are cheap, and holding one does not
+    imply having a key for it, since keys are passed per call.
+    """
+
+    customer_api: CustomerApi
+    seller_api: SellerApi
 
 
 def app(ctx: Context[AppContext]) -> AppContext:
