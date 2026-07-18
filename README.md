@@ -18,8 +18,7 @@ authorization stay in the UnitySVC backend.
 > | stdio transport (default) and HTTP (opt-in) | ✅ implemented |
 > | Credentials from `UNITYSVC_API_KEY` / `UNITYSVC_SELLER_API_KEY` | ✅ implemented |
 > | Tools split by mode, advertised on credentials present | ✅ implemented |
-> | PyPI publish workflow | ✅ implemented — awaiting a PyPI trusted publisher and a release |
-> | Published to PyPI (`uvx unitysvc-mcp-server`) | ⏳ not yet released — install from source |
+> | Published to PyPI — `uvx unitysvc-mcp-server` works | ✅ v0.1.0 |
 > | `mcp.unitysvc.com` deployed | ⏳ not yet deployed |
 > | `how_to_call` code-generation tool | ⏳ planned |
 >
