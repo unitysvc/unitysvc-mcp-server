@@ -13,8 +13,9 @@ from mcp.server import MCPServer
 from unitysvc_mcp.server import register_tools
 from unitysvc_mcp.settings import Settings
 
-CONTEXT_TOOLS = {"list_market_services"}
-ACTING_TOOLS = {"list_seller_services"}
+MARKET_TOOLS = {"market_list_services"}
+SELLER_TOOLS = {"seller_list_services"}
+CUSTOMER_TOOLS: set[str] = set()  # Phase 3 of unitysvc#1492
 
 
 def _settings(**env: str) -> Settings:
@@ -25,11 +26,11 @@ def _registered(config: Settings) -> set[str]:
     return set(register_tools(MCPServer("test"), config))
 
 
-def test_no_keys_registers_context_tools_only() -> None:
+def test_no_keys_registers_market_tools_only() -> None:
     """This is the hosted deployment: an empty environment."""
     config = _settings()
 
-    assert _registered(config) == CONTEXT_TOOLS
+    assert _registered(config) == MARKET_TOOLS
     assert not config.can_act_as_customer
     assert not config.can_act_as_seller
     assert config.mode == "context only (anonymous)"
@@ -38,16 +39,16 @@ def test_no_keys_registers_context_tools_only() -> None:
 def test_seller_key_adds_the_seller_tool() -> None:
     config = _settings(UNITYSVC_SELLER_API_KEY="svcpass_sell")
 
-    assert _registered(config) == CONTEXT_TOOLS | ACTING_TOOLS
+    assert _registered(config) == MARKET_TOOLS | SELLER_TOOLS
     assert config.can_act_as_seller
     assert not config.can_act_as_customer
 
 
 def test_customer_key_does_not_add_seller_tools() -> None:
-    """A customer key widens catalog visibility but grants no seller surface."""
+    """A customer key widens market visibility but grants no seller surface."""
     config = _settings(UNITYSVC_API_KEY="svcpass_cust")
 
-    assert _registered(config) == CONTEXT_TOOLS
+    assert _registered(config) == MARKET_TOOLS | CUSTOMER_TOOLS
     assert config.can_act_as_customer
     assert not config.can_act_as_seller
 
@@ -59,7 +60,7 @@ def test_both_keys_give_the_full_surface() -> None:
         UNITYSVC_SELLER_API_KEY="svcpass_sell",
     )
 
-    assert _registered(config) == CONTEXT_TOOLS | ACTING_TOOLS
+    assert _registered(config) == MARKET_TOOLS | SELLER_TOOLS
     assert config.mode == "context + acting as customer/seller"
 
 
@@ -103,3 +104,18 @@ def test_credentials_are_not_read_from_request_headers() -> None:
     source = inspect.getsource(server)
     assert "ctx.headers" not in source
     assert "Authorization" not in source
+
+
+def test_tool_names_match_their_module_prefix() -> None:
+    """The prefix is the access rule, so it must not drift from the module.
+
+    A `seller_` tool registered by the market module would silently become
+    available with no credentials — the exact confusion this layout prevents.
+    """
+    from mcp.server import MCPServer
+
+    from unitysvc_mcp.tools import customer, market, seller
+
+    for module, prefix in ((market, "market_"), (customer, "customer_"), (seller, "seller_")):
+        for name in module.register(MCPServer("test")):
+            assert name.startswith(prefix), f"{name} is not in the {prefix} module"

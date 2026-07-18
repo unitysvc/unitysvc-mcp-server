@@ -169,15 +169,25 @@ use one of the local setups above.
 Named for the *side of the marketplace* they belong to, so it is unambiguous which one
 answers a given request:
 
-| Tool | View | Credential | In hosted mode |
+Tools are named for the credential they need, and grouped into one module per
+requirement — the prefix *is* the access rule:
+
+| Prefix | Requires | Registered | Today |
 |---|---|---|---|
-| `list_market_services(group, limit, cursor)` | what you can **buy** — services on offer | none — uses `UNITYSVC_API_KEY` if set | ✅ always |
-| `list_seller_services(status, limit, cursor)` | what you **sell** — your own listings | `UNITYSVC_SELLER_API_KEY` | — never |
+| `market_` | nothing | always | `market_list_services(group, limit, cursor)` |
+| `customer_` | `UNITYSVC_API_KEY` | when set | — (enrollments, invoke: planned) |
+| `seller_` | `UNITYSVC_SELLER_API_KEY` | when set | `seller_list_services(status, limit, cursor)` |
 
-Each tool's description states explicitly what it is *not* and points at the other, since
-those descriptions are all a model has when choosing between them.
+So a prefixed tool needs that role's key and `market_` is free — a rule an agent can apply
+without reading descriptions, and one that keeps same-verb pairs unambiguous
+(`customer_get_usage` = your spend, `seller_get_usage` = your revenue).
 
-**Tools are advertised, not just gated.** With no seller key, `list_seller_services` does
+The hosted deployment runs with an empty environment, so it registers `market_` only.
+
+Each description also states explicitly what the tool is *not* and points at its
+counterpart, since those descriptions are all a model has when choosing.
+
+**Tools are advertised, not just gated.** With no seller key, `seller_list_services` does
 not appear in `tools/list` at all, so an agent never sees an option it cannot use and never
 burns a turn discovering that. The hosted deployment runs with an empty environment, so it
 advertises exactly the first row.
