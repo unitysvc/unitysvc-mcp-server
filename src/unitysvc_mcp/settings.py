@@ -33,6 +33,10 @@ class Settings(BaseSettings):
         None,
         alias="UNITYSVC_AUTH_INTROSPECTION_CLIENT_SECRET",
     )
+    # Loopback by default (matches the SDK default, and keeps its automatic
+    # DNS-rebinding protection on). The Docker image overrides host to 0.0.0.0.
+    host: str = Field("127.0.0.1", alias="UNITYSVC_MCP_HOST")
+    port: int = Field(8000, alias="UNITYSVC_MCP_PORT")
     dev_tokens_json: str = Field("{}", alias="UNITYSVC_MCP_DEV_TOKENS")
     default_catalog_group: str | None = Field(
         None,

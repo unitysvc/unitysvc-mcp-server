@@ -9,7 +9,10 @@ import httpx
 from pydantic import Field
 
 from mcp.server import MCPServer
-from mcp.server.context import Context
+
+# NOT `mcp.server.context.Context` — that is a different class, and the tool
+# decorator only recognises (and excludes from the input schema) this one.
+from mcp.server.mcpserver import Context
 
 from .auth import AuthService
 from .models import Principal, ServicesPage
@@ -112,7 +115,7 @@ async def list_seller_services(
 
 
 def main() -> None:
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="streamable-http", host=settings.host, port=settings.port)
 
 
 if __name__ == "__main__":
