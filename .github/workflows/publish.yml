@@ -1,0 +1,43 @@
+name: Publish to PyPI
+
+# Mirrors the workflow in unitysvc-py. Publishing is triggered by creating a
+# GitHub release, never by a push — so a merge to main can never ship a
+# version to PyPI by accident. PyPI version numbers cannot be reused, so the
+# release step stays explicit and deliberate.
+#
+# Before the first release, a Trusted Publisher must be registered on PyPI
+# (pypi.org -> Publishing -> add a pending publisher) for repository
+# unitysvc/unitysvc-mcp-server, workflow `publish.yml`, environment `pypi`.
+# Until that exists this job will fail authentication — there is no API token
+# to fall back on, by design.
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/unitysvc-mcp-server
+    permissions:
+      # Required for PyPI Trusted Publishing (OIDC)
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: pip install build
+
+      - name: Build package
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
