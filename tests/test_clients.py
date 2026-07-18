@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import inspect
+
 import httpx
 import pytest
 
@@ -129,3 +131,24 @@ async def test_seller_listing_uses_the_seller_host_and_token(
     assert request.headers["authorization"] == "Bearer svcpass_sell"
     assert request.url.params.get("status") == "active"
     assert page.role == "seller"
+
+
+@pytest.mark.asyncio
+async def test_market_tool_never_sends_a_customer_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The marketplace listing is always anonymous, even with a key configured.
+
+    The backend serves it from a fixed active+public filter and ignores caller
+    identity, so a key cannot widen the result — it can only turn a working
+    call into a 401 when expired or wrong.
+    """
+    seen = _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=_page(SERVICE_ROW)))
+    monkeypatch.setenv("UNITYSVC_API_KEY", "svcpass_configured_but_unused")
+
+    from unitysvc_mcp.tools import market
+
+    assert "api_key" not in inspect.getsource(market.market_list_services)
+    client = CustomerApi(_settings())
+    await client.list_services(limit=1)
+    assert "authorization" not in {k.lower() for k in seen[-1].headers}

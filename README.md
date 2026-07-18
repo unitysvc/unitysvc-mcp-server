@@ -84,10 +84,15 @@ Which key you provide decides what you can do:
 
 | You set | You get |
 |---|---|
-| nothing | marketplace browsing only (anonymous) |
-| `UNITYSVC_API_KEY` | marketplace + customer operations |
-| `UNITYSVC_SELLER_API_KEY` | marketplace + seller operations |
-| both | everything (a seller who is also a customer) |
+| nothing | marketplace browsing |
+| `UNITYSVC_SELLER_API_KEY` | marketplace browsing + your seller listings |
+| `UNITYSVC_API_KEY` | marketplace browsing — **no additional tools yet** |
+
+`UNITYSVC_API_KEY` currently unlocks nothing: the customer-side tools
+(enrollments, invoke) are not built, and marketplace browsing does not vary by
+customer — the backend serves that listing from a fixed `active` + `public`
+filter and ignores caller identity. The variable is recognised so it is ready
+when those tools land; until then, only a seller key changes what you can do.
 
 There is no role to configure. The API key already encodes whether it is a customer or a
 seller key, and the backend enforces it.
@@ -206,7 +211,7 @@ tool was redundant with the two explicit ones in both modes.
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `UNITYSVC_API_KEY` | customer API key | unset → anonymous |
+| `UNITYSVC_API_KEY` | customer API key — recognised, but unlocks no tools yet | unset |
 | `UNITYSVC_SELLER_API_KEY` | seller API key | unset → seller tools unavailable |
 | `UNITYSVC_API_URL` | customer API base | `https://api.unitysvc.com/v1` |
 | `UNITYSVC_SELLER_API_URL` | seller API base | `https://seller.unitysvc.com/v1` |

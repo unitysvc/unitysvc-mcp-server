@@ -16,7 +16,6 @@ from pydantic import Field
 
 from ..app_context import AppContext, app
 from ..models import ServicesPage
-from ..settings import settings
 
 
 async def market_list_services(
@@ -32,13 +31,13 @@ async def market_list_services(
     This is the public view of the market and needs no credentials. It does
     NOT list services you publish as a seller; use seller_list_services for
     those.
-
-    With a customer API key configured, the listing is made as that customer,
-    which can widen what is visible.
     """
-    # The customer API, called with no key unless one is configured.
+    # Deliberately anonymous even when a customer key is configured. The
+    # backend hardcodes status='active' AND visibility='public' for this
+    # listing and ignores caller identity, so a key cannot widen the result —
+    # it can only turn a working call into a 401 when the key is expired or
+    # wrong. Revisit if the endpoint ever varies by customer.
     return await app(ctx).customer_api.list_services(
-        api_key=settings.customer_api_key,
         group=group,
         limit=limit,
         cursor=cursor,
