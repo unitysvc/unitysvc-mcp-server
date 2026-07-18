@@ -1,35 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-
-Role = Literal["anonymous", "customer", "seller", "admin", "support"]
-
-
-class Principal(BaseModel):
-    """Authenticated UnitySVC principal derived from the bearer token."""
-
-    subject: str = "anonymous"
-    roles: list[Role] = Field(default_factory=lambda: ["anonymous"])
-    customer_id: str | None = None
-    seller_id: str | None = None
-    scopes: list[str] = Field(default_factory=list)
-    token: str | None = Field(default=None, exclude=True)
-    claims: dict[str, Any] = Field(default_factory=dict, exclude=True)
-
-    @property
-    def is_anonymous(self) -> bool:
-        return self.subject == "anonymous" or "anonymous" in self.roles
-
-    @property
-    def is_seller(self) -> bool:
-        return "seller" in self.roles
-
-    @property
-    def is_customer(self) -> bool:
-        return "customer" in self.roles
+# How a listing was made. Not an identity claim the server derived — it simply
+# records which key (if any) the call used, so the caller can tell an anonymous
+# catalog view from an authenticated one.
+Role = Literal["anonymous", "customer", "seller"]
 
 
 class ServiceSummary(BaseModel):

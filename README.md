@@ -15,16 +15,16 @@ authorization stay in the UnitySVC backend.
 > |---|---|
 > | Catalog + seller listing tools via the official SDKs | ✅ implemented |
 > | Anonymous catalog browsing (no credentials) | ✅ implemented |
-> | HTTP (streamable-http) transport | ✅ implemented |
-> | **stdio transport** | ⏳ planned — the entry point currently hardcodes HTTP |
-> | **Credentials from `UNITYSVC_API_KEY` / `UNITYSVC_SELLER_API_KEY`** | ⏳ planned — today a bearer token is read per request |
-> | Published to PyPI (`uvx unitysvc-mcp-server`) | ⏳ planned — install from source for now |
+> | stdio transport (default) and HTTP (opt-in) | ✅ implemented |
+> | Credentials from `UNITYSVC_API_KEY` / `UNITYSVC_SELLER_API_KEY` | ✅ implemented |
+> | Tools split by mode, advertised on credentials present | ✅ implemented |
+> | PyPI publish workflow | ✅ implemented — awaiting a PyPI trusted publisher and a release |
+> | Published to PyPI (`uvx unitysvc-mcp-server`) | ⏳ not yet released — install from source |
+> | `mcp.unitysvc.com` deployed | ⏳ not yet deployed |
 > | `how_to_call` code-generation tool | ⏳ planned |
 >
-> **Known bug (being removed):** role is currently inferred from token claims, so a valid
-> *seller* key resolves to a customer principal and seller tools reject it. The fix is to
-> stop inferring roles entirely — the API key already carries `role_type` and the backend
-> is the authority.
+> The earlier role-inference bug — where a valid *seller* key resolved to a customer
+> principal and seller tools rejected it — is fixed by removing role inference entirely.
 
 ## Two modes
 
@@ -168,12 +168,17 @@ use one of the local setups above.
 
 | Tool | Credential | In hosted mode |
 |---|---|---|
-| `list_catalog_services(group, limit, cursor)` | none | ✅ |
-| `list_services(status, limit, cursor)` | none / customer / seller | ✅ (anonymous view) |
-| `list_seller_services(status, limit, cursor)` | seller key | — |
+| `list_catalog_services(group, limit, cursor)` | none — uses `UNITYSVC_API_KEY` if set | ✅ always |
+| `list_seller_services(status, limit, cursor)` | `UNITYSVC_SELLER_API_KEY` | — never |
 
-`list_services` is role-aware: it returns the caller's own services when a seller key is
-present, and the public catalog otherwise.
+**Tools are advertised, not just gated.** With no seller key, `list_seller_services` does
+not appear in `tools/list` at all, so an agent never sees an option it cannot use and never
+burns a turn discovering that. The hosted deployment runs with an empty environment, so it
+advertises exactly the first row.
+
+The previous role-aware `list_services` has been removed. It existed to paper over an agent
+not knowing which mode it was in; conditional advertisement answers that directly, and the
+tool was redundant with the two explicit ones in both modes.
 
 ## Configuration
 
@@ -181,8 +186,9 @@ present, and the public catalog otherwise.
 |---|---|---|
 | `UNITYSVC_API_KEY` | customer API key | unset → anonymous |
 | `UNITYSVC_SELLER_API_KEY` | seller API key | unset → seller tools unavailable |
-| `UNITYSVC_CUSTOMER_API_URL` | customer API base | `https://api.unitysvc.com/v1` |
+| `UNITYSVC_API_URL` | customer API base | `https://api.unitysvc.com/v1` |
 | `UNITYSVC_SELLER_API_URL` | seller API base | `https://seller.unitysvc.com/v1` |
+| `UNITYSVC_MCP_TRANSPORT` | `stdio` or `http` | `stdio` |
 | `UNITYSVC_MCP_HOST` / `UNITYSVC_MCP_PORT` | bind address — HTTP mode only | `127.0.0.1` / `8000` |
 
 The key and URL variables are the SDKs' own, so if you already use the `usvc` CLI you have
@@ -199,11 +205,15 @@ uv run pytest
 uv run ruff check src/ tests/
 ```
 
-Run the HTTP server locally:
+Run it:
 
 ```bash
-uv run unitysvc-mcp-server        # binds UNITYSVC_MCP_HOST:UNITYSVC_MCP_PORT
+uv run unitysvc-mcp-server                              # stdio (default)
+UNITYSVC_MCP_TRANSPORT=http uv run unitysvc-mcp-server  # HTTP, binds HOST:PORT
 ```
+
+The startup log line reports which mode you got — transport, whether any credentials were
+found, and the tools registered.
 
 The MCP SDK v2 beta is pinned in `pyproject.toml`; revisit the pin when v2 stabilises.
 

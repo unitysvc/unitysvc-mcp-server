@@ -3,7 +3,6 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from unitysvc_mcp.models import Principal
 from unitysvc_mcp.settings import Settings
 from unitysvc_mcp.unitysvc_client import UnitySvcClient
 
@@ -33,8 +32,10 @@ SELLER_ROW = {
 
 
 def _settings() -> Settings:
+    # _env_file=None so a developer's local .env cannot influence the test.
     return Settings(
-        UNITYSVC_CUSTOMER_API_URL=CUSTOMER_BASE,
+        _env_file=None,
+        UNITYSVC_API_URL=CUSTOMER_BASE,
         UNITYSVC_SELLER_API_URL=SELLER_BASE,
     )
 
@@ -78,7 +79,7 @@ async def test_anonymous_catalog_sends_no_authorization(
     seen = _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=_page(SERVICE_ROW)))
 
     client = UnitySvcClient(_settings())
-    page = await client.list_catalog_services(Principal(), limit=5)
+    page = await client.list_catalog_services(limit=5)
 
     request = seen[-1]
     assert str(request.url).startswith(CUSTOMER_BASE)
@@ -96,9 +97,7 @@ async def test_authenticated_catalog_uses_the_callers_token(
     seen = _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=_page(SERVICE_ROW)))
 
     client = UnitySvcClient(_settings())
-    page = await client.list_catalog_services(
-        Principal(roles=["customer"], token="svcpass_cust"), limit=5
-    )
+    page = await client.list_catalog_services(api_key="svcpass_cust", limit=5)
 
     assert seen[-1].headers["authorization"] == "Bearer svcpass_cust"
     assert page.role == "customer"
@@ -111,7 +110,7 @@ async def test_explicit_group_overrides_the_default(
     seen = _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=_page(SERVICE_ROW)))
 
     client = UnitySvcClient(_settings())
-    await client.list_catalog_services(Principal(), group="llm")
+    await client.list_catalog_services(group="llm")
 
     assert seen[-1].url.path.endswith("/groups/llm/services")
 
@@ -123,19 +122,10 @@ async def test_seller_listing_uses_the_seller_host_and_token(
     seen = _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=_page(SELLER_ROW)))
 
     client = UnitySvcClient(_settings())
-    page = await client.list_seller_services(
-        Principal(roles=["seller"], token="svcpass_sell"), status="active", limit=5
-    )
+    page = await client.list_seller_services(api_key="svcpass_sell", status="active", limit=5)
 
     request = seen[-1]
     assert str(request.url).startswith(SELLER_BASE)
     assert request.headers["authorization"] == "Bearer svcpass_sell"
     assert request.url.params.get("status") == "active"
     assert page.role == "seller"
-
-
-@pytest.mark.asyncio
-async def test_seller_listing_requires_a_token() -> None:
-    client = UnitySvcClient(_settings())
-    with pytest.raises(PermissionError):
-        await client.list_seller_services(Principal())
