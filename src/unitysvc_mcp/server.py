@@ -40,6 +40,15 @@ async def lifespan(server: MCPServer[AppContext]) -> AsyncIterator[AppContext]:
 mcp = MCPServer("UnitySVC MCP Server", lifespan=lifespan)
 
 
+def _app(ctx: Context[AppContext]) -> AppContext:
+    """Reach the lifespan state.
+
+    `Context` exposes it via `request_context.lifespan_context`; the bare
+    `.lifespan` shortcut belongs to the unrelated `mcp.server.context.Context`.
+    """
+    return ctx.request_context.lifespan_context
+
+
 def _headers(ctx: Context[AppContext] | None) -> Mapping[str, str] | None:
     return ctx.headers if ctx is not None else None
 
@@ -47,7 +56,7 @@ def _headers(ctx: Context[AppContext] | None) -> Mapping[str, str] | None:
 async def _principal(ctx: Context[AppContext] | None) -> Principal:
     if ctx is None:
         return Principal()
-    return await ctx.lifespan.auth.resolve(_headers(ctx))
+    return await _app(ctx).auth.resolve(_headers(ctx))
 
 
 @mcp.tool()
@@ -62,13 +71,13 @@ async def list_services(
 
     principal = await _principal(ctx)
     if principal.is_seller:
-        return await ctx.lifespan.unitysvc.list_seller_services(
+        return await _app(ctx).unitysvc.list_seller_services(
             principal,
             status=status,
             limit=limit,
             cursor=cursor,
         )
-    return await ctx.lifespan.unitysvc.list_catalog_services(
+    return await _app(ctx).unitysvc.list_catalog_services(
         principal,
         group=group,
         limit=limit,
@@ -86,7 +95,7 @@ async def list_catalog_services(
     """List catalog services visible to anonymous or customer sessions."""
 
     principal = await _principal(ctx)
-    return await ctx.lifespan.unitysvc.list_catalog_services(
+    return await _app(ctx).unitysvc.list_catalog_services(
         principal,
         group=group,
         limit=limit,
@@ -106,7 +115,7 @@ async def list_seller_services(
     principal = await _principal(ctx)
     if not principal.is_seller:
         raise PermissionError("list_seller_services requires the seller role")
-    return await ctx.lifespan.unitysvc.list_seller_services(
+    return await _app(ctx).unitysvc.list_seller_services(
         principal,
         status=status,
         limit=limit,

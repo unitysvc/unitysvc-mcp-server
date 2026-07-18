@@ -33,17 +33,21 @@ class Principal(BaseModel):
 
 
 class ServiceSummary(BaseModel):
-    """Compact service row returned by MCP listing tools."""
+    """Compact service row returned by MCP listing tools.
+
+    Fields are the union of what the three listing paths actually return.
+    Not every path fills every field: the anonymous catalog has no
+    service_type/gateway_type, and the SDK summaries carry no tags.
+    """
 
     id: str | None = None
     name: str
     display_name: str | None = None
-    description: str | None = None
     service_type: str | None = None
+    gateway_type: str | None = None
     status: str | None = None
-    visibility: str | None = None
-    capabilities: list[str] = Field(default_factory=list)
-    list_price: dict[str, Any] | None = None
+    currency: str | None = None
+    tags: list[str] = Field(default_factory=list)
 
 
 class ServicesPage(BaseModel):

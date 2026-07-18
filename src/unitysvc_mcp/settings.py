@@ -13,8 +13,22 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    # Three distinct backends, because DEPLOYMENT_TYPE decides which routes a
+    # host mounts (see backend/app/api/main.py):
+    #
+    #   public   — the site host; its ingress peels /v1/* to the `frontend` BFF,
+    #              the only deployment mounting the anonymous catalog routes.
+    #   customer — DEPLOYMENT_TYPE=customer. Every route requires customer auth.
+    #   seller   — DEPLOYMENT_TYPE=seller.
+    #
+    # `api.unitysvc.com` is the *customer* host, not a public one: it answers
+    # 404 for /services/ and 401 for /groups when unauthenticated.
+    public_api_url: AnyHttpUrl = Field(
+        "https://unitysvc.com/v1",
+        alias="UNITYSVC_PUBLIC_API_URL",
+    )
     customer_api_url: AnyHttpUrl = Field(
-        "https://customer.unitysvc.com/v1",
+        "https://api.unitysvc.com/v1",
         alias="UNITYSVC_CUSTOMER_API_URL",
     )
     seller_api_url: AnyHttpUrl = Field(
