@@ -14,6 +14,11 @@ dependencies = [
 [project.scripts]
 unitysvc-mcp-server = "unitysvc_mcp.server:main"
 
+# `mcp[cli]` is pinned to a 2.0 beta while the server is a prototype; uv
+# refuses to resolve pre-release versions unless told to.
+[tool.uv]
+prerelease = "allow"
+
 [dependency-groups]
 dev = [
     "pytest>=8,<9",
@@ -24,6 +29,11 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# Project name (unitysvc-mcp-server) differs from the package dir
+# (src/unitysvc_mcp), so hatchling can't infer what to ship.
+[tool.hatch.build.targets.wheel]
+packages = ["src/unitysvc_mcp"]
 
 [tool.ruff]
 target-version = "py311"
