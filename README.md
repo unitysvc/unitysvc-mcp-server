@@ -18,7 +18,7 @@ authorization stay in the UnitySVC backend.
 > | stdio transport (default) and HTTP (opt-in) | ✅ implemented |
 > | Credentials from `UNITYSVC_API_KEY` / `UNITYSVC_SELLER_API_KEY` | ✅ implemented |
 > | Tools split by mode, advertised on credentials present | ✅ implemented |
-> | Published to PyPI — `uvx unitysvc-mcp-server` works | ✅ v0.1.0 |
+> | Published to PyPI | ✅ v0.1.0 |
 > | `mcp.unitysvc.com` deployed | ⏳ not yet deployed |
 > | `how_to_call` code-generation tool | ⏳ planned |
 >
@@ -105,8 +105,15 @@ use `mcp.unitysvc.com`, something is wrong — it does not accept one.
 claude mcp add unitysvc \
   --env UNITYSVC_API_KEY="${UNITYSVC_API_KEY}" \
   --env UNITYSVC_SELLER_API_KEY="${UNITYSVC_SELLER_API_KEY}" \
-  -- uvx unitysvc-mcp-server
+  -- uvx --prerelease=allow --from unitysvc-mcp-server unitysvc-mcp-server
 ```
+
+> **Note on `--prerelease=allow`.** This package pins `mcp[cli]==2.0.0b1`, the MCP
+> Python SDK v2 beta. `uv` refuses to resolve pre-release dependencies unless told to,
+> so `uvx` needs that flag. `pip install unitysvc-mcp-server` needs nothing extra. The
+> flag goes away once MCP SDK v2 ships stable and the pin moves off the beta.
+
+
 
 Or project-scoped, in `.mcp.json` — safe to commit, since the values are expanded from your
 environment at launch and never written into the file:
@@ -117,7 +124,7 @@ environment at launch and never written into the file:
     "unitysvc": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["unitysvc-mcp-server"],
+      "args": ["--prerelease=allow", "--from", "unitysvc-mcp-server", "unitysvc-mcp-server"],
       "env": {
         "UNITYSVC_API_KEY": "${UNITYSVC_API_KEY}",
         "UNITYSVC_SELLER_API_KEY": "${UNITYSVC_SELLER_API_KEY}"
@@ -139,7 +146,7 @@ Omit either variable to run without that role's tools; omit both for anonymous b
     "unitysvc": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["unitysvc-mcp-server"],
+      "args": ["--prerelease=allow", "--from", "unitysvc-mcp-server", "unitysvc-mcp-server"],
       "env": { "UNITYSVC_API_KEY": "svcpass_..." }
     }
   }
