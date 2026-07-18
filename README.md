@@ -1,64 +1,213 @@
 # UnitySVC MCP Server
 
-Starter implementation for a hosted UnitySVC MCP server using the MCP Python SDK v2 beta.
+Exposes the UnitySVC catalog and account operations to MCP clients — Claude Code, Claude
+Desktop, Codex, claude.ai — so an agent can discover services, explain how to call them,
+and (when you supply credentials) operate your account.
 
-## What This Includes
+It is deliberately thin: it adapts MCP calls to the UnitySVC APIs through the official
+`unitysvc-py` and `unitysvc-sellers` SDKs. Business rules, visibility, billing, and
+authorization stay in the UnitySVC backend.
 
-- Bearer-token authentication plumbing.
-- Anonymous/customer catalog service listing.
-- Seller-owned service listing.
-- A role-aware `list_services` tool:
-  - anonymous/customer sessions list catalog-visible services;
-  - seller sessions list the authenticated seller's own services.
-- Explicit aliases:
-  - `list_catalog_services`
-  - `list_seller_services`
+> **Status.** Prototype. The table below marks what runs today versus what is designed but
+> not yet built. See unitysvc/unitysvc#1492 for the full design.
+>
+> | | Status |
+> |---|---|
+> | Catalog + seller listing tools via the official SDKs | ✅ implemented |
+> | Anonymous catalog browsing (no credentials) | ✅ implemented |
+> | HTTP (streamable-http) transport | ✅ implemented |
+> | **stdio transport** | ⏳ planned — the entry point currently hardcodes HTTP |
+> | **Credentials from `UNITYSVC_API_KEY` / `UNITYSVC_SELLER_API_KEY`** | ⏳ planned — today a bearer token is read per request |
+> | Published to PyPI (`uvx unitysvc-mcp-server`) | ⏳ planned — install from source for now |
+> | `how_to_call` code-generation tool | ⏳ planned |
+>
+> **Known bug (being removed):** role is currently inferred from token claims, so a valid
+> *seller* key resolves to a customer principal and seller tools reject it. The fix is to
+> stop inferring roles entirely — the API key already carries `role_type` and the backend
+> is the authority.
 
-This is intentionally thin: it adapts MCP calls to UnitySVC HTTP APIs. Business rules, billing,
-visibility, and authorization should remain enforced by the UnitySVC backend.
+## Two modes
 
-## Install
+The same package runs in two shapes. They differ only in transport and where credentials
+come from — the tools themselves are identical.
+
+| | **Local (stdio)** | **Hosted (HTTP)** |
+|---|---|---|
+| Runs as | a subprocess of your MCP client, on your machine | a service at `mcp.unitysvc.com` |
+| Credentials | your own API keys, from the process environment | **none — by design** |
+| Offers | everything: catalog, plus your customer and seller operations | catalog discovery and how-to guidance only |
+| Reaches | Claude Code, Claude Desktop, Codex | any client, **including claude.ai in a browser** |
+| Needs | a local Python runtime | nothing |
+
+**Why the hosted instance holds no credentials.** The valuable question — *"which service
+should I use, and how do I call it?"* — does not require your key. The catalog is public,
+and the actual invocation goes from your machine to the gateway with your key, never
+through us. So the hosted server answers questions and returns copy-pasteable commands; it
+never acts on your behalf, and there is no credential for it to hold, log, or leak.
+
+It is not a different program. It is this same package running with nothing in its
+environment, so only the tools that need no credentials are advertised.
+
+## Credentials: where they live, and what is never sent
+
+This is the part worth reading carefully.
+
+### Local (stdio)
+
+```
+   your MCP client config
+        │  populates the child process environment at spawn
+        ▼
+   unitysvc-mcp-server  (subprocess on your machine)
+        │  UNITYSVC_API_KEY / UNITYSVC_SELLER_API_KEY
+        ▼  HTTPS, directly
+   api.unitysvc.com  /  seller.unitysvc.com
+```
+
+- Your key lives in **your MCP client's configuration** and in the **environment of a
+  process on your own machine**. Nowhere else.
+- It is sent **only to the UnitySVC API**, over HTTPS, by the SDK — the same destination
+  the `usvc` CLI uses. There is no intermediary.
+- It is **never** sent to `mcp.unitysvc.com`, and never appears in tool arguments, so it
+  does not enter the model's context, the conversation transcript, or your client's logs.
+
+**Exporting the variable in your shell is not enough.** MCP clients pass only a *safelist*
+of variables to a spawned server — `HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM`, `USER` — so
+`UNITYSVC_API_KEY` from your shell profile will **not** reach the process. You must declare
+it in the MCP configuration. Use variable expansion so the value stays in your shell rather
+than being written into a file:
+
+```jsonc
+"env": { "UNITYSVC_API_KEY": "${UNITYSVC_API_KEY}" }
+```
+
+Which key you provide decides what you can do:
+
+| You set | You get |
+|---|---|
+| nothing | catalog browsing only (anonymous) |
+| `UNITYSVC_API_KEY` | catalog + customer operations |
+| `UNITYSVC_SELLER_API_KEY` | catalog + seller operations |
+| both | everything (a seller who is also a customer) |
+
+There is no role to configure. The API key already encodes whether it is a customer or a
+seller key, and the backend enforces it.
+
+### Hosted (HTTP)
+
+No credentials are configured, sent, or held. If you find yourself pasting an API key to
+use `mcp.unitysvc.com`, something is wrong — it does not accept one.
+
+## Installation
+
+### Claude Code — local, with your keys
+
+```bash
+claude mcp add unitysvc \
+  --env UNITYSVC_API_KEY="${UNITYSVC_API_KEY}" \
+  --env UNITYSVC_SELLER_API_KEY="${UNITYSVC_SELLER_API_KEY}" \
+  -- uvx unitysvc-mcp-server
+```
+
+Or project-scoped, in `.mcp.json` — safe to commit, since the values are expanded from your
+environment at launch and never written into the file:
+
+```jsonc
+{
+  "mcpServers": {
+    "unitysvc": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["unitysvc-mcp-server"],
+      "env": {
+        "UNITYSVC_API_KEY": "${UNITYSVC_API_KEY}",
+        "UNITYSVC_SELLER_API_KEY": "${UNITYSVC_SELLER_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+Omit either variable to run without that role's tools; omit both for anonymous browsing.
+
+### Claude Desktop — local, with your keys
+
+`~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
+
+```jsonc
+{
+  "mcpServers": {
+    "unitysvc": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["unitysvc-mcp-server"],
+      "env": { "UNITYSVC_API_KEY": "svcpass_..." }
+    }
+  }
+}
+```
+
+Claude Desktop is a GUI application and does not read your shell startup files, so `${VAR}`
+expansion has nothing to expand from — the literal value is required here. That file is not
+in a repository, but treat it as a secret. Restart Claude Desktop after editing, and note
+that a JSON syntax error silently disables *all* configured servers.
+
+### Codex — local, with your keys
+
+Codex takes an equivalent stdio entry in `~/.codex/config.toml` with `command`, `args`, and
+`env`. Check the current Codex documentation for the exact key names before relying on it —
+we have not verified them against a recent release.
+
+### claude.ai — hosted, no credentials
+
+Add `https://mcp.unitysvc.com/mcp` as a custom connector. There is nothing to authenticate
+and no key to supply. You get catalog discovery and how-to guidance; to act on your account,
+use one of the local setups above.
+
+## Tools
+
+| Tool | Credential | In hosted mode |
+|---|---|---|
+| `list_catalog_services(group, limit, cursor)` | none | ✅ |
+| `list_services(status, limit, cursor)` | none / customer / seller | ✅ (anonymous view) |
+| `list_seller_services(status, limit, cursor)` | seller key | — |
+
+`list_services` is role-aware: it returns the caller's own services when a seller key is
+present, and the public catalog otherwise.
+
+## Configuration
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `UNITYSVC_API_KEY` | customer API key | unset → anonymous |
+| `UNITYSVC_SELLER_API_KEY` | seller API key | unset → seller tools unavailable |
+| `UNITYSVC_CUSTOMER_API_URL` | customer API base | `https://api.unitysvc.com/v1` |
+| `UNITYSVC_SELLER_API_URL` | seller API base | `https://seller.unitysvc.com/v1` |
+| `UNITYSVC_MCP_HOST` / `UNITYSVC_MCP_PORT` | bind address — HTTP mode only | `127.0.0.1` / `8000` |
+
+The key and URL variables are the SDKs' own, so if you already use the `usvc` CLI you have
+them set and need no new values.
+
+Anonymous catalog browsing requires the customer API to serve unauthenticated catalog reads
+(unitysvc/unitysvc#1610) — merged, but not yet deployed in every environment.
+
+## Development
 
 ```bash
 uv sync --dev
-cp .env.example .env
+uv run pytest
+uv run ruff check src/ tests/
 ```
 
-## Run
+Run the HTTP server locally:
 
 ```bash
-uv run mcp dev src/unitysvc_mcp/server.py
+uv run unitysvc-mcp-server        # binds UNITYSVC_MCP_HOST:UNITYSVC_MCP_PORT
 ```
 
-For a hosted Streamable HTTP process:
+The MCP SDK v2 beta is pinned in `pyproject.toml`; revisit the pin when v2 stabilises.
 
-```bash
-uv run unitysvc-mcp-server
-```
+## Design
 
-The MCP SDK v2 beta is pinned in `pyproject.toml`. Revisit the pin when v2 reaches a stable release.
-
-## Authentication Model
-
-Clients should send an OAuth bearer token with MCP HTTP requests. The starter supports two modes:
-
-1. Development tokens via `UNITYSVC_MCP_DEV_TOKENS`.
-2. Optional OAuth/OIDC introspection via `UNITYSVC_AUTH_INTROSPECTION_URL`.
-
-If no token is present, the principal is anonymous. Anonymous users can call catalog read-only tools.
-Seller-only tools require a token whose resolved principal has the `seller` role.
-
-## Tool Contract
-
-`list_services(status=None, limit=25, cursor=None)`
-
-Role-aware convenience tool. It returns catalog services for anonymous/customer principals and seller-owned
-services for seller principals.
-
-`list_catalog_services(group=None, limit=25, cursor=None)`
-
-Read-only catalog listing for anonymous/customer flows.
-
-`list_seller_services(status=None, limit=25, cursor=None)`
-
-Seller-owned service listing. Requires the `seller` role.
+See unitysvc/unitysvc#1492 for the full design: the two deployment modes, credential
+handling, MCP specification conformance, and phasing.
