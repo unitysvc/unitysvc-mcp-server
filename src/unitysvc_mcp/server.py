@@ -66,22 +66,32 @@ def _app(ctx: Context[AppContext]) -> AppContext:
 # ---------------------------------------------------------------------------
 # Context tools — no credentials required, always registered
 # ---------------------------------------------------------------------------
+#
+# Tool names and descriptions are the only thing a model has when choosing
+# between them, so the two listings are named for the *side of the
+# marketplace* they belong to — market (what you can buy) versus seller (what
+# you sell) — and each description says explicitly what it is NOT. "Catalog"
+# was ambiguous: it named the data, not the perspective, so "list my services"
+# could plausibly route to either one.
 
 
-async def list_catalog_services(
+async def list_market_services(
     ctx: Context[AppContext],
     group: Annotated[
-        str | None, Field(description="Catalog group name. Defaults to all_services.")
+        str | None, Field(description="Marketplace group name. Defaults to all_services.")
     ] = None,
     limit: Annotated[int, Field(ge=1, le=100)] = 25,
     cursor: Annotated[str | None, Field(description="Opaque cursor from a previous page.")] = None,
 ) -> ServicesPage:
-    """List services in the public UnitySVC catalog.
+    """Browse services offered ON the UnitySVC marketplace — what you can buy and call.
 
-    Works without credentials. When a customer API key is configured the same
-    listing is made as that customer, which can widen what is visible.
+    This is the buyer's view of the market. It does NOT list services you
+    publish as a seller; use list_seller_services for those.
+
+    Works without credentials. With a customer API key configured, the listing
+    is made as that customer, which can widen what is visible.
     """
-    return await _app(ctx).unitysvc.list_catalog_services(
+    return await _app(ctx).unitysvc.list_market_services(
         api_key=settings.customer_api_key,
         group=group,
         limit=limit,
@@ -102,7 +112,11 @@ async def list_seller_services(
     limit: Annotated[int, Field(ge=1, le=100)] = 25,
     cursor: Annotated[str | None, Field(description="Opaque cursor from a previous page.")] = None,
 ) -> ServicesPage:
-    """List the services you own as a seller.
+    """List the services YOU publish as a seller — your own listings.
+
+    This is the seller's view of your own inventory, including services that
+    are not yet active or public. It does NOT browse the marketplace; use
+    list_market_services for what is on offer from others.
 
     Requires UNITYSVC_SELLER_API_KEY. This tool is not advertised at all when
     that key is absent, so an agent never sees an option it cannot use.
@@ -125,8 +139,8 @@ def register_tools(server: MCPServer[AppContext], config: Settings = settings) -
     everything; the hosted process has an empty environment and gets the
     context tools only. Neither needs to know which transport it is on.
     """
-    server.add_tool(list_catalog_services)
-    names = ["list_catalog_services"]
+    server.add_tool(list_market_services)
+    names = ["list_market_services"]
 
     if config.can_act_as_seller:
         server.add_tool(list_seller_services)

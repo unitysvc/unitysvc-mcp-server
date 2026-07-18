@@ -13,7 +13,7 @@ from mcp.server import MCPServer
 from unitysvc_mcp.server import register_tools
 from unitysvc_mcp.settings import Settings
 
-CONTEXT_TOOLS = {"list_catalog_services"}
+CONTEXT_TOOLS = {"list_market_services"}
 ACTING_TOOLS = {"list_seller_services"}
 
 

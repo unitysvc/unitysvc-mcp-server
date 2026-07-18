@@ -13,8 +13,8 @@ authorization stay in the UnitySVC backend.
 >
 > | | Status |
 > |---|---|
-> | Catalog + seller listing tools via the official SDKs | ✅ implemented |
-> | Anonymous catalog browsing (no credentials) | ✅ implemented |
+> | Market + seller listing tools via the official SDKs | ✅ implemented |
+> | Anonymous marketplace browsing (no credentials) | ✅ implemented |
 > | stdio transport (default) and HTTP (opt-in) | ✅ implemented |
 > | Credentials from `UNITYSVC_API_KEY` / `UNITYSVC_SELLER_API_KEY` | ✅ implemented |
 > | Tools split by mode, advertised on credentials present | ✅ implemented |
@@ -35,7 +35,7 @@ come from — the tools themselves are identical.
 |---|---|---|
 | Runs as | a subprocess of your MCP client, on your machine | a service at `mcp.unitysvc.com` |
 | Credentials | your own API keys, from the process environment | **none — by design** |
-| Offers | everything: catalog, plus your customer and seller operations | catalog discovery and how-to guidance only |
+| Offers | everything: the market view, plus your customer and seller operations | market discovery and how-to guidance only |
 | Reaches | Claude Code, Claude Desktop, Codex | any client, **including claude.ai in a browser** |
 | Needs | a local Python runtime | nothing |
 
@@ -85,9 +85,9 @@ Which key you provide decides what you can do:
 
 | You set | You get |
 |---|---|
-| nothing | catalog browsing only (anonymous) |
-| `UNITYSVC_API_KEY` | catalog + customer operations |
-| `UNITYSVC_SELLER_API_KEY` | catalog + seller operations |
+| nothing | marketplace browsing only (anonymous) |
+| `UNITYSVC_API_KEY` | marketplace + customer operations |
+| `UNITYSVC_SELLER_API_KEY` | marketplace + seller operations |
 | both | everything (a seller who is also a customer) |
 
 There is no role to configure. The API key already encodes whether it is a customer or a
@@ -166,10 +166,16 @@ use one of the local setups above.
 
 ## Tools
 
-| Tool | Credential | In hosted mode |
-|---|---|---|
-| `list_catalog_services(group, limit, cursor)` | none — uses `UNITYSVC_API_KEY` if set | ✅ always |
-| `list_seller_services(status, limit, cursor)` | `UNITYSVC_SELLER_API_KEY` | — never |
+Named for the *side of the marketplace* they belong to, so it is unambiguous which one
+answers a given request:
+
+| Tool | View | Credential | In hosted mode |
+|---|---|---|---|
+| `list_market_services(group, limit, cursor)` | what you can **buy** — services on offer | none — uses `UNITYSVC_API_KEY` if set | ✅ always |
+| `list_seller_services(status, limit, cursor)` | what you **sell** — your own listings | `UNITYSVC_SELLER_API_KEY` | — never |
+
+Each tool's description states explicitly what it is *not* and points at the other, since
+those descriptions are all a model has when choosing between them.
 
 **Tools are advertised, not just gated.** With no seller key, `list_seller_services` does
 not appear in `tools/list` at all, so an agent never sees an option it cannot use and never

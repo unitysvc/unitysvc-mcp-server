@@ -79,7 +79,7 @@ async def test_anonymous_catalog_sends_no_authorization(
     seen = _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=_page(SERVICE_ROW)))
 
     client = UnitySvcClient(_settings())
-    page = await client.list_catalog_services(limit=5)
+    page = await client.list_market_services(limit=5)
 
     request = seen[-1]
     assert str(request.url).startswith(CUSTOMER_BASE)
@@ -97,7 +97,7 @@ async def test_authenticated_catalog_uses_the_callers_token(
     seen = _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=_page(SERVICE_ROW)))
 
     client = UnitySvcClient(_settings())
-    page = await client.list_catalog_services(api_key="svcpass_cust", limit=5)
+    page = await client.list_market_services(api_key="svcpass_cust", limit=5)
 
     assert seen[-1].headers["authorization"] == "Bearer svcpass_cust"
     assert page.role == "customer"
@@ -110,7 +110,7 @@ async def test_explicit_group_overrides_the_default(
     seen = _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=_page(SERVICE_ROW)))
 
     client = UnitySvcClient(_settings())
-    await client.list_catalog_services(group="llm")
+    await client.list_market_services(group="llm")
 
     assert seen[-1].url.path.endswith("/groups/llm/services")
 

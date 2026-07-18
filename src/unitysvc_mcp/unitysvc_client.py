@@ -22,7 +22,7 @@ class UnitySvcClient:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    async def list_catalog_services(
+    async def list_market_services(
         self,
         *,
         api_key: str | None = None,
@@ -30,10 +30,12 @@ class UnitySvcClient:
         limit: int = 25,
         cursor: str | None = None,
     ) -> ServicesPage:
-        """List catalog services, anonymously or as an authenticated customer.
+        """List marketplace services, anonymously or as a named customer.
 
-        Catalog discovery is group-rooted, so with no group named this falls
-        back to the platform-wide collection the marketplace tree is rooted on.
+        The backend calls this the customer *catalog*; the MCP tool is named
+        for the buyer's perspective instead. Discovery is group-rooted, so with
+        no group named this falls back to the platform-wide collection the
+        marketplace tree is rooted on.
         """
         group_name = group or self._settings.default_catalog_group or "all_services"
 
