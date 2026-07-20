@@ -150,3 +150,58 @@ async def test_market_tool_never_sends_a_customer_key(
     client = CustomerApi(_settings())
     await client.list_services(limit=1)
     assert "authorization" not in {k.lower() for k in seen[-1].headers}
+
+
+SVC_ID = SERVICE_ROW["id"]
+
+USAGE_RESPONSE = {"markdown": "## How to use this service\n\nUse it directly."}
+
+DOCUMENTS_RESPONSE = {
+    "interface": "canonical",
+    "available_interfaces": ["canonical", "latest"],
+    "documents": [
+        {
+            "id": "0f2f0f9e-1111-4222-8333-444444444405",
+            "title": "Python code example",
+            "category": "code_example",
+            "mime_type": "python",
+            "content": "print('hi')",
+        }
+    ],
+}
+
+
+@pytest.mark.asyncio
+async def test_service_usage_returns_markdown_anonymously(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen = _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=USAGE_RESPONSE))
+
+    client = CustomerApi(_settings())
+    md = await client.service_usage(SVC_ID)
+
+    request = seen[-1]
+    assert request.url.path.endswith(f"/services/{SVC_ID}/usage")
+    assert "authorization" not in {k.lower() for k in request.headers}
+    assert md.startswith("## How to use this service")
+
+
+@pytest.mark.asyncio
+async def test_service_examples_filters_by_language_and_parses_envelope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen = _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=DOCUMENTS_RESPONSE))
+
+    client = CustomerApi(_settings())
+    result = await client.service_examples(SVC_ID, language="python")
+
+    request = seen[-1]
+    assert request.url.path.endswith(f"/services/{SVC_ID}/documents")
+    assert request.url.params.get("category") == "code_example"
+    assert request.url.params.get("mime_type") == "python"
+    assert request.url.params.get("include_content") == "true"
+    assert result.interface == "canonical"
+    assert result.available_interfaces == ["canonical", "latest"]
+    assert [(e.title, e.language, e.content) for e in result.examples] == [
+        ("Python code example", "python", "print('hi')")
+    ]
