@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from unitysvc import AsyncClient
 
-from ..models import ServicesPage
+from ..models import CodeExample, ServiceExamples, ServicesPage
 from ..settings import Settings
-from ._summary import service_summary
+from ._summary import clean, service_summary
 
 
 class CustomerApi:
@@ -53,4 +53,64 @@ class CustomerApi:
             data=[service_summary(item) for item in page.data],
             count=len(page.data),
             next_cursor=page.next_cursor,
+        )
+
+    async def service_usage(
+        self,
+        service_id: str,
+        *,
+        api_key: str | None = None,
+    ) -> str:
+        """The derived "how to use this service" guide, as markdown.
+
+        Generic and anonymous — a per-channel walkthrough (free/paid, secrets
+        to set, enrollment steps) synthesized from metadata (unitysvc#1622).
+        Plain text (no webapp links), which is what an agent wants to read.
+        """
+        async with AsyncClient(
+            api_key=api_key,
+            base_url=str(self._settings.customer_api_url),
+        ) as client:
+            return await client.services.usage(service_id)
+
+    async def service_examples(
+        self,
+        service_id: str,
+        *,
+        api_key: str | None = None,
+        language: str | None = None,
+        interface: str | None = None,
+    ) -> ServiceExamples:
+        """Rendered code examples for calling a service (unitysvc#1617).
+
+        Filters to ``code_example`` documents; ``language`` narrows by mime
+        type (``python`` / ``bash`` / …). Examples come back rendered against
+        the default interface unless one is named.
+        """
+        async with AsyncClient(
+            api_key=api_key,
+            base_url=str(self._settings.customer_api_url),
+        ) as client:
+            resp = await client.services.documents(
+                service_id,
+                category="code_example",
+                mime_type=language,
+                include_content=True,
+                interface=interface,
+            )
+
+        docs = getattr(resp, "documents", None) or []
+        available = getattr(resp, "available_interfaces", None)
+        return ServiceExamples(
+            interface=clean(getattr(resp, "interface", None)),
+            available_interfaces=[str(x) for x in available] if isinstance(available, list) else [],
+            examples=[
+                CodeExample(
+                    title=str(clean(getattr(d, "title", None)) or ""),
+                    language=clean(getattr(d, "mime_type", None)),
+                    content=clean(getattr(d, "content", None)),
+                    render_error=clean(getattr(d, "render_error", None)),
+                )
+                for d in docs
+            ],
         )

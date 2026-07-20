@@ -15,7 +15,7 @@ from mcp.server.mcpserver import Context
 from pydantic import Field
 
 from ..app_context import AppContext, app
-from ..models import ServicesPage
+from ..models import ServiceExamples, ServicesPage
 
 
 async def market_list_services(
@@ -44,6 +44,45 @@ async def market_list_services(
     )
 
 
+async def market_service_access(
+    ctx: Context[AppContext],
+    service_id: Annotated[
+        str, Field(description="Service id, from market_list_services (the `id` field).")
+    ],
+) -> str:
+    """Explain how to sign up for and use a marketplace service.
+
+    Returns a derived, per-channel guide (markdown): which channels the service
+    offers, whether each is free or paid, what secrets a customer must set (and
+    how to obtain them), whether enrollment is required and with what
+    parameters, and how to call it. Synthesized from service metadata, so it
+    needs no credentials. Use market_service_example for the actual code.
+    """
+    return await app(ctx).customer_api.service_usage(service_id)
+
+
+async def market_service_example(
+    ctx: Context[AppContext],
+    service_id: Annotated[
+        str, Field(description="Service id, from market_list_services (the `id` field).")
+    ],
+    language: Annotated[
+        str | None,
+        Field(description="Filter examples by language/mime type, e.g. python, bash."),
+    ] = None,
+) -> ServiceExamples:
+    """Get runnable code examples for calling a marketplace service.
+
+    Returns seller-authored code examples, rendered against a real access
+    interface (real gateway base URL, not a template placeholder). Filter by
+    `language` for one runtime. Use market_service_access first for the
+    sign-up/setup steps; this tool is the "show me the code" follow-up.
+    """
+    return await app(ctx).customer_api.service_examples(service_id, language=language)
+
+
 def register(server: MCPServer[AppContext]) -> list[str]:
     server.add_tool(market_list_services)
-    return ["market_list_services"]
+    server.add_tool(market_service_access)
+    server.add_tool(market_service_example)
+    return ["market_list_services", "market_service_access", "market_service_example"]

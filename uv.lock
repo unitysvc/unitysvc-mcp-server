@@ -1084,7 +1084,7 @@ wheels = [
 
 [[package]]
 name = "unitysvc-mcp-server"
-version = "0.1.0"
+version = "0.1.4"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
@@ -1108,7 +1108,7 @@ requires-dist = [
     { name = "mcp", extras = ["cli"], specifier = "==2.0.0b1" },
     { name = "pydantic", specifier = ">=2,<3" },
     { name = "pydantic-settings", specifier = ">=2,<3" },
-    { name = "unitysvc-py", specifier = ">=0.1.16" },
+    { name = "unitysvc-py", specifier = ">=0.1.17" },
     { name = "unitysvc-sellers", specifier = ">=0.2.19" },
 ]
 
@@ -1121,7 +1121,7 @@ dev = [
 
 [[package]]
 name = "unitysvc-py"
-version = "0.1.16"
+version = "0.1.17"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
@@ -1130,9 +1130,9 @@ dependencies = [
     { name = "rich" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b5/e2/df19249cbadfa44b89c29d999602c7e3dd1a3f1fd518aa4c80662bf5ac20/unitysvc_py-0.1.16.tar.gz", hash = "sha256:b11de7f334dbf37b2a4fced2cfea8b1a14977f8d7495d692ba5fc0d5dbc5ddcb", size = 153383, upload-time = "2026-07-18T12:25:49.05Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dc/06/909da50ed85ddc4a19c11fe393ed41b31f67f2b2756e17bf696c03d95954/unitysvc_py-0.1.17.tar.gz", hash = "sha256:b05918d81c7cc9e033be5e2c48dc2432c558747f3b9e834dc927a2b66794903f", size = 162062, upload-time = "2026-07-20T03:34:55.994Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1b/f9/49b0a66a503423ac56a9ce57ab3a3bc4c791d01aa08e05c9940759d63423/unitysvc_py-0.1.16-py3-none-any.whl", hash = "sha256:d76b31ec6662cc150f4b047dc2961b184cdc2b75db977842f03fa60a39dd0ab9", size = 312503, upload-time = "2026-07-18T12:25:47.752Z" },
+    { url = "https://files.pythonhosted.org/packages/34/df/786fa7281a3f32b20e84a59123ba36a2c030acdcec5a2ff0b2c6ed125241/unitysvc_py-0.1.17-py3-none-any.whl", hash = "sha256:50615a62272e06f081bab8bac201031c68266555189b18280535d479100f9d0e", size = 327410, upload-time = "2026-07-20T03:34:54.442Z" },
 ]
 
 [[package]]

@@ -180,8 +180,13 @@ requirement — the prefix *is* the access rule:
 
 | Prefix | Requires | Registered | Today |
 |---|---|---|---|
-| `market_` | nothing | always | `market_list_services(group, limit, cursor)` |
+| `market_` | nothing | always | `market_list_services(group, limit, cursor)`, `market_service_access(service_id)`, `market_service_example(service_id, language)` |
 | `seller_` | `UNITYSVC_SELLER_API_KEY` | when set | `seller_list_services(status, limit, cursor)` |
+
+The market usage tools answer "how do I use this?": `market_service_access` returns the
+derived, per-channel sign-up/setup guide (markdown), and `market_service_example` returns
+runnable code examples rendered against a real interface. Both are anonymous and generic —
+the same content for every caller.
 
 So a prefixed tool needs that role's key and `market_` is free — a rule an agent can apply
 without reading descriptions, and one that keeps same-verb pairs unambiguous
