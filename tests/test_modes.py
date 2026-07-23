@@ -18,6 +18,9 @@ MARKET_TOOLS = {
     "market_service_access",
     "market_service_example",
 }
+DOCS_TOOLS = {"docs_list_topics", "docs_get_topic"}
+# Credential-free tools every deployment advertises, keys or not.
+ANON_TOOLS = MARKET_TOOLS | DOCS_TOOLS
 SELLER_TOOLS = {"seller_list_services"}
 
 
@@ -29,11 +32,15 @@ def _registered(config: Settings) -> set[str]:
     return set(register_tools(MCPServer("test"), config))
 
 
-def test_no_keys_registers_market_tools_only() -> None:
-    """This is the hosted deployment: an empty environment."""
+def test_no_keys_registers_the_anonymous_tools() -> None:
+    """This is the hosted deployment: an empty environment.
+
+    It advertises exactly the credential-free tools — the market catalog and
+    the docs — and nothing role-gated.
+    """
     config = _settings()
 
-    assert _registered(config) == MARKET_TOOLS
+    assert _registered(config) == ANON_TOOLS
     assert not config.can_act_as_seller
     assert config.mode == "context only (anonymous)"
 
@@ -41,7 +48,7 @@ def test_no_keys_registers_market_tools_only() -> None:
 def test_seller_key_adds_the_seller_tool() -> None:
     config = _settings(UNITYSVC_SELLER_API_KEY="svcpass_sell")
 
-    assert _registered(config) == MARKET_TOOLS | SELLER_TOOLS
+    assert _registered(config) == ANON_TOOLS | SELLER_TOOLS
     assert config.can_act_as_seller
 
 
@@ -56,7 +63,7 @@ def test_an_unrecognised_customer_key_changes_nothing() -> None:
         UNITYSVC_SELLER_API_KEY="svcpass_sell",
     )
 
-    assert _registered(config) == MARKET_TOOLS | SELLER_TOOLS
+    assert _registered(config) == ANON_TOOLS | SELLER_TOOLS
     assert config.mode == "context + acting as seller"
     assert not hasattr(config, "customer_api_key")
 
@@ -111,8 +118,8 @@ def test_tool_names_match_their_module_prefix() -> None:
     """
     from mcp.server import MCPServer
 
-    from unitysvc_mcp.tools import market, seller
+    from unitysvc_mcp.tools import docs, market, seller
 
-    for module, prefix in ((market, "market_"), (seller, "seller_")):
+    for module, prefix in ((market, "market_"), (docs, "docs_"), (seller, "seller_")):
         for name in module.register(MCPServer("test")):
             assert name.startswith(prefix), f"{name} is not in the {prefix} module"

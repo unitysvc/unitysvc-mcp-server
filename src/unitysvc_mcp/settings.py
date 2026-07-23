@@ -44,6 +44,21 @@ class Settings(BaseSettings):
         "https://seller.unitysvc.com/v1",
         alias="UNITYSVC_SELLER_API_URL",
     )
+    # The frontend site — it serves the single-source docs "topics"
+    # (`/topics`, `/topics/<slug>`) the docs_* tools read. A different host
+    # from the API backends above, and no credential: the topics are public.
+    site_url: AnyHttpUrl = Field(
+        "https://unitysvc.com",
+        alias="UNITYSVC_SITE_URL",
+    )
+    # How long the docs_* tools cache a fetched manifest/topic in memory. Docs
+    # are static and change rarely, so the long-lived hosted process serves
+    # from memory and refetches only after this window; edits appear within it
+    # with no restart.
+    docs_cache_ttl_seconds: int = Field(
+        900,
+        alias="UNITYSVC_DOCS_CACHE_TTL",
+    )
 
     # --- Transport ---------------------------------------------------------
     # stdio by default: the common case is a user's own MCP client spawning

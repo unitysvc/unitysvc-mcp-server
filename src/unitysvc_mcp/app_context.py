@@ -10,19 +10,21 @@ from dataclasses import dataclass
 
 from mcp.server.mcpserver import Context
 
-from .clients import CustomerApi, SellerApi
+from .clients import CustomerApi, DocsClient, SellerApi
 
 
 @dataclass
 class AppContext:
     """One client per API, so a tool names the API it talks to.
 
-    Both are always constructed — they are cheap, and holding one does not
-    imply having a key for it, since keys are passed per call.
+    All are always constructed — they are cheap, and holding one does not
+    imply having a key for it, since keys are passed per call (and the docs
+    client needs none at all).
     """
 
     customer_api: CustomerApi
     seller_api: SellerApi
+    docs: DocsClient
 
 
 def app(ctx: Context[AppContext]) -> AppContext:

@@ -10,6 +10,17 @@ from pydantic import BaseModel
 Role = Literal["anonymous", "customer", "seller"]
 
 
+class TopicSummary(BaseModel):
+    """One row in the docs topic menu (`docs_list_topics`).
+
+    The `/topics` manifest is intentionally just slug + title — a menu the
+    agent picks from, then reads with `docs_get_topic(slug)`.
+    """
+
+    slug: str
+    title: str
+
+
 class ServiceSummary(BaseModel):
     """Compact service row returned by MCP listing tools.
 
