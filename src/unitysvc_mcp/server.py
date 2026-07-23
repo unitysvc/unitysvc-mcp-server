@@ -6,8 +6,8 @@ process environment carries credentials:
 - **stdio** (default) — a subprocess of the user's MCP client, on their
   machine, holding their own API keys. Gets the full surface.
 - **http** — the hosted deployment at mcp.unitysvc.com, run with an *empty*
-  environment. Only `market_*` registers, so it has no credential to hold,
-  log, or leak.
+  environment. Only the credential-free tools (`market_*`, `docs_*`) register,
+  so it has no credential to hold, log, or leak.
 
 Tools are grouped by the credential they need, one module per group, and the
 name prefix states that requirement — see `tools/__init__.py`. Which key is
@@ -25,9 +25,9 @@ from contextlib import asynccontextmanager
 from mcp.server import MCPServer
 
 from .app_context import AppContext
-from .clients import CustomerApi, SellerApi
+from .clients import CustomerApi, DocsClient, SellerApi
 from .settings import Settings, settings
-from .tools import market, seller
+from .tools import docs, market, seller
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ async def lifespan(server: MCPServer[AppContext]) -> AsyncIterator[AppContext]:
     yield AppContext(
         customer_api=CustomerApi(settings),
         seller_api=SellerApi(settings),
+        docs=DocsClient(settings),
     )
 
 
@@ -51,9 +52,10 @@ def register_tools(server: MCPServer[AppContext], config: Settings = settings) -
     startup, from the environment — which covers both deployments without
     either needing to know its transport: a user's stdio process has their
     keys and gets everything, the hosted process has an empty environment and
-    gets `market_*` only.
+    gets the credential-free tools (`market_*`, `docs_*`) only.
     """
     names = market.register(server)
+    names += docs.register(server)
     if config.can_act_as_seller:
         names += seller.register(server)
     return names

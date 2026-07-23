@@ -14,6 +14,7 @@ authorization stay in the UnitySVC backend.
 > | | Status |
 > |---|---|
 > | Market + seller listing tools via the official SDKs | ✅ implemented |
+> | Docs/topic tools (`docs_list_topics`, `docs_get_topic`) | ✅ implemented |
 > | Anonymous marketplace browsing (no credentials) | ✅ implemented |
 > | stdio transport (default) and HTTP (opt-in) | ✅ implemented |
 > | Credentials from `UNITYSVC_SELLER_API_KEY` | ✅ implemented |
