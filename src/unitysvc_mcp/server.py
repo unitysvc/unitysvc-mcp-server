@@ -26,7 +26,7 @@ from mcp.server import MCPServer
 
 from .app_context import AppContext
 from .clients import CustomerApi, DocsClient, SellerApi
-from .context import CustomerContextCache
+from .customer_context import CustomerContextCache
 from .settings import Settings, settings
 from .tools import customer, docs, market, seller
 

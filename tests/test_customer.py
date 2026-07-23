@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unitysvc_mcp.context import CustomerContext, EnrollmentInfo
+from unitysvc_mcp.customer_context import CustomerContext, EnrollmentInfo
 from unitysvc_mcp.tools.customer import _endpoint_url, _service_view
 
 

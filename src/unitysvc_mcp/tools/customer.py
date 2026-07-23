@@ -17,7 +17,7 @@ from mcp.server.mcpserver import Context
 from pydantic import Field
 
 from ..app_context import AppContext, app
-from ..context import CustomerContext, EnrollmentInfo
+from ..customer_context import CustomerContext, EnrollmentInfo
 from ..render import RenderContext, render_access_plan
 
 

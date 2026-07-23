@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from mcp.server.mcpserver import Context
 
 from .clients import CustomerApi, DocsClient, SellerApi
-from .context import CustomerContextCache
+from .customer_context import CustomerContextCache
 
 
 @dataclass

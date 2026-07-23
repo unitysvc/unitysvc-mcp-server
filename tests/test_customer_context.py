@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from unitysvc_mcp.context import CustomerContext, CustomerContextCache, EnrollmentInfo
+from unitysvc_mcp.customer_context import CustomerContext, CustomerContextCache, EnrollmentInfo
 from unitysvc_mcp.settings import Settings
 
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from unitysvc import AccessPlan, AsyncClient
 
-from ..context import EnrollmentInfo
+from ..customer_context import EnrollmentInfo
 from ..models import CodeExample, ServiceExamples, ServicesPage
 from ..render import render_access_plan
 from ..settings import Settings
