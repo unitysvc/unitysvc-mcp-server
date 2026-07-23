@@ -7,9 +7,7 @@ from unitysvc_mcp.tools.customer import _endpoint_url, _service_view
 
 
 def _enr(service_id: str, code: str | None, proxy: str | None) -> EnrollmentInfo:
-    return EnrollmentInfo(
-        service_id=service_id, status="active", code=code, proxy_endpoint=proxy
-    )
+    return EnrollmentInfo(service_id=service_id, status="active", code=code, proxy_endpoint=proxy)
 
 
 def test_endpoint_url_is_origin_plus_code() -> None:

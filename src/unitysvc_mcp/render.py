@@ -28,6 +28,7 @@ class RenderContext:
     set_secret_names: frozenset[str]
     enrollment_urls: list[str]
 
+
 # Generated attrs models leave unset optionals as an ``UNSET`` sentinel rather
 # than None, so coerce by type instead of truthiness-on-a-sentinel.
 

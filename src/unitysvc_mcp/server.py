@@ -41,9 +41,7 @@ async def lifespan(server: MCPServer[AppContext]) -> AsyncIterator[AppContext]:
         seller_api=SellerApi(settings),
         docs=DocsClient(settings),
         customer_context=(
-            CustomerContextCache(customer_api, settings)
-            if settings.can_act_as_customer
-            else None
+            CustomerContextCache(customer_api, settings) if settings.can_act_as_customer else None
         ),
     )
 
