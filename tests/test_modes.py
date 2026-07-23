@@ -21,6 +21,7 @@ MARKET_TOOLS = {
 DOCS_TOOLS = {"docs_list_topics", "docs_get_topic"}
 # Credential-free tools every deployment advertises, keys or not.
 ANON_TOOLS = MARKET_TOOLS | DOCS_TOOLS
+CUSTOMER_TOOLS = {"customer_service_access"}
 SELLER_TOOLS = {"seller_list_services"}
 
 
@@ -52,20 +53,21 @@ def test_seller_key_adds_the_seller_tool() -> None:
     assert config.can_act_as_seller
 
 
-def test_an_unrecognised_customer_key_changes_nothing() -> None:
-    """UNITYSVC_API_KEY unlocks nothing today and must not be silently honoured.
+def test_customer_key_adds_the_customer_tools() -> None:
+    config = _settings(UNITYSVC_API_KEY="svcpass_cust")
 
-    Customer-side tools are Phase 3 of unitysvc#1492; until they exist a
-    customer key would be config that appears to do something and does not.
-    """
+    assert _registered(config) == ANON_TOOLS | CUSTOMER_TOOLS
+    assert config.can_act_as_customer
+
+
+def test_both_keys_register_both_tiers() -> None:
     config = _settings(
         UNITYSVC_API_KEY="svcpass_cust",
         UNITYSVC_SELLER_API_KEY="svcpass_sell",
     )
 
-    assert _registered(config) == ANON_TOOLS | SELLER_TOOLS
-    assert config.mode == "context + acting as seller"
-    assert not hasattr(config, "customer_api_key")
+    assert _registered(config) == ANON_TOOLS | CUSTOMER_TOOLS | SELLER_TOOLS
+    assert config.mode == "context + acting as customer + seller"
 
 
 def test_transport_defaults_to_stdio() -> None:
@@ -118,8 +120,13 @@ def test_tool_names_match_their_module_prefix() -> None:
     """
     from mcp.server import MCPServer
 
-    from unitysvc_mcp.tools import docs, market, seller
+    from unitysvc_mcp.tools import customer, docs, market, seller
 
-    for module, prefix in ((market, "market_"), (docs, "docs_"), (seller, "seller_")):
+    for module, prefix in (
+        (market, "market_"),
+        (docs, "docs_"),
+        (customer, "customer_"),
+        (seller, "seller_"),
+    ):
         for name in module.register(MCPServer("test")):
             assert name.startswith(prefix), f"{name} is not in the {prefix} module"

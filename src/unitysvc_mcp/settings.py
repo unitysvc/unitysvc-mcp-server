@@ -24,12 +24,13 @@ class Settings(BaseSettings):
     # `role_type`, and the backend authorises every call from the key, so the
     # server never infers a role of its own.
     #
-    # Only the seller key exists today. A customer key would unlock nothing:
-    # the marketplace listing is served from a fixed active+public filter that
-    # ignores caller identity, and the customer-side tools (enrollments,
-    # invoke) are not built. UNITYSVC_API_KEY comes back with those, in Phase 3
-    # of unitysvc#1492 — carrying it now would be config that does nothing.
     seller_api_key: str | None = Field(None, alias="UNITYSVC_SELLER_API_KEY")
+    # The customer key unlocks the customer-aware tools (`customer_*`): they
+    # join the caller's own context — which secrets are set (names only), and
+    # their live `/e/<CODE>` enrollment URLs — onto the generic access plan.
+    # Anonymous browsing still works without it; the hosted deployment carries
+    # neither key.
+    api_key: str | None = Field(None, alias="UNITYSVC_API_KEY")
 
     # --- Backends ----------------------------------------------------------
     # Names match the SDKs' own, so anyone already set up for the `usvc` CLI
@@ -76,6 +77,18 @@ class Settings(BaseSettings):
         None,
         alias="UNITYSVC_DEFAULT_CATALOG_GROUP",
     )
+    # How long (seconds) a customer_* tool caches the caller's context snapshot
+    # (secret names + enrollments) before refetching. Short so a secret set or
+    # an enrollment made mid-session shows up within the window.
+    customer_context_ttl_seconds: int = Field(
+        300,
+        alias="UNITYSVC_CUSTOMER_CONTEXT_TTL",
+    )
+
+    @property
+    def can_act_as_customer(self) -> bool:
+        """Whether the customer-aware tools are available."""
+        return bool(self.api_key)
 
     @property
     def can_act_as_seller(self) -> bool:
@@ -85,9 +98,14 @@ class Settings(BaseSettings):
     @property
     def mode(self) -> str:
         """Human-readable summary of what this process can do, for logging."""
+        parts = []
+        if self.can_act_as_customer:
+            parts.append("customer")
         if self.can_act_as_seller:
-            return "context + acting as seller"
-        return "context only (anonymous)"
+            parts.append("seller")
+        if not parts:
+            return "context only (anonymous)"
+        return "context + acting as " + " + ".join(parts)
 
 
 settings = Settings()

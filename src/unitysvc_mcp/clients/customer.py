@@ -8,8 +8,9 @@ the market tools use this client: they call the customer API *anonymously*.
 
 from __future__ import annotations
 
-from unitysvc import AsyncClient
+from unitysvc import AccessPlan, AsyncClient
 
+from ..context import EnrollmentInfo
 from ..models import CodeExample, ServiceExamples, ServicesPage
 from ..render import render_access_plan
 from ..settings import Settings
@@ -56,6 +57,23 @@ class CustomerApi:
             next_cursor=page.next_cursor,
         )
 
+    async def access_plan(
+        self,
+        service_id: str,
+        *,
+        api_key: str | None = None,
+    ) -> AccessPlan:
+        """The generic, context-free ``AccessPlan`` for a service (unitysvc#1638).
+
+        The backend serves structure, not prose; needs no key. Callers render
+        it — generically (``service_usage``) or with customer context.
+        """
+        async with AsyncClient(
+            api_key=api_key,
+            base_url=str(self._settings.customer_api_url),
+        ) as client:
+            return await client.services.access_plan(service_id)
+
     async def service_usage(
         self,
         service_id: str,
@@ -64,17 +82,36 @@ class CustomerApi:
     ) -> str:
         """The "how to use this service" guide, as markdown.
 
-        Fetches the generic, context-free ``AccessPlan`` (unitysvc#1638 — the
-        backend serves structure, not prose) and renders it to markdown here.
-        Anonymous: the plan needs no key. Plain text (no webapp links), which
-        is what an agent wants to read.
+        Fetches the ``AccessPlan`` and renders it generically (no customer
+        context). Plain text, which is what an agent wants to read.
         """
+        return render_access_plan(await self.access_plan(service_id, api_key=api_key))
+
+    async def list_secret_names(self, *, api_key: str | None) -> frozenset[str]:
+        """The names of the caller's secrets (never the values — write-only)."""
         async with AsyncClient(
             api_key=api_key,
             base_url=str(self._settings.customer_api_url),
         ) as client:
-            plan = await client.services.access_plan(service_id)
-        return render_access_plan(plan)
+            secrets = await client.secrets.list()
+        return frozenset(s.name for s in secrets.data)
+
+    async def list_enrollments(self, *, api_key: str | None) -> list[EnrollmentInfo]:
+        """The caller's enrollments, reduced to ``EnrollmentInfo`` for rendering."""
+        async with AsyncClient(
+            api_key=api_key,
+            base_url=str(self._settings.customer_api_url),
+        ) as client:
+            enrollments = await client.enrollments.list()
+        return [
+            EnrollmentInfo(
+                service_id=str(e.service_id),
+                status=str(e.status),
+                code=e.code if isinstance(e.code, str) else None,
+                proxy_endpoint=e.proxy_endpoint if isinstance(e.proxy_endpoint, str) else None,
+            )
+            for e in enrollments.data
+        ]
 
     async def service_examples(
         self,

@@ -11,9 +11,22 @@ are set, live ``/e/<CODE>`` URLs) needs a customer key and is a follow-up.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from unitysvc import AccessPlan, ChannelPlan, SecretRequirement
+
+
+@dataclass(frozen=True)
+class RenderContext:
+    """The caller's own context for one service (customer_* tools).
+
+    ``set_secret_names`` are the names of secrets the caller has already set;
+    ``enrollment_urls`` are their live ``/e/<CODE>`` URLs for this service.
+    """
+
+    set_secret_names: frozenset[str]
+    enrollment_urls: list[str]
 
 # Generated attrs models leave unset optionals as an ``UNSET`` sentinel rather
 # than None, so coerce by type instead of truthiness-on-a-sentinel.
@@ -80,13 +93,19 @@ def _verb(ch: ChannelPlan, mode: str) -> str | None:
     return None
 
 
-def _secret_bullets(label: str, secrets: list[SecretRequirement]) -> list[str]:
+def _secret_bullets(
+    label: str,
+    secrets: list[SecretRequirement],
+    set_names: frozenset[str] | None = None,
+) -> list[str]:
     if not secrets:
         return []
     lines = [label]
     for secret in secrets:
         name = _str(secret.name) or ""
         text = f"- `{name}`"
+        if set_names is not None:
+            text += " (set)" if name in set_names else " (not set)"
         description = _str(secret.description)
         if description:
             text += f" — {description}"
@@ -97,9 +116,14 @@ def _secret_bullets(label: str, secrets: list[SecretRequirement]) -> list[str]:
     return lines
 
 
-def render_access_plan(plan: AccessPlan) -> str:
-    """Render an :class:`AccessPlan` to markdown for an agent to read."""
+def render_access_plan(plan: AccessPlan, *, context: RenderContext | None = None) -> str:
+    """Render an :class:`AccessPlan` to markdown for an agent to read.
+
+    With ``context`` (a ``customer_*`` call), secrets are marked (set)/(not set)
+    and the caller's live ``/e/<CODE>`` URLs replace the generic enroll hint.
+    """
     mode = plan.enrollment_mode if isinstance(plan.enrollment_mode, str) else "disallowed"
+    set_names = context.set_secret_names if context is not None else None
     channels = _list(plan.channels)
     out: list[str] = ["# How to use this service"]
 
@@ -132,6 +156,9 @@ def render_access_plan(plan: AccessPlan) -> str:
             out += [f"- `{key}` = `{value}`" for key, value in rows]
         else:
             out.append("Call the service at its gateway interface.")
+    elif context is not None and context.enrollment_urls:
+        out.append("Your endpoint URL(s):")
+        out += [f"- {url}" for url in context.enrollment_urls]
     else:
         out.append(_ENDPOINT_HINT.get(mode, ""))
 
@@ -144,7 +171,7 @@ def render_access_plan(plan: AccessPlan) -> str:
                 out += ["", f"### {_str(ch.name) or ''}"]
             verb = _verb(ch, mode)
             out.append(f"{_price(ch)}." + (f" {verb}" if verb else ""))
-            out += _secret_bullets("Secrets to set:", _list(ch.required_secrets))
-            out += _secret_bullets("Optional secrets:", _list(ch.optional_secrets))
+            out += _secret_bullets("Secrets to set:", _list(ch.required_secrets), set_names)
+            out += _secret_bullets("Optional secrets:", _list(ch.optional_secrets), set_names)
 
     return "\n".join(out).strip() + "\n"

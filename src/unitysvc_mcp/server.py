@@ -26,18 +26,25 @@ from mcp.server import MCPServer
 
 from .app_context import AppContext
 from .clients import CustomerApi, DocsClient, SellerApi
+from .context import CustomerContextCache
 from .settings import Settings, settings
-from .tools import docs, market, seller
+from .tools import customer, docs, market, seller
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(server: MCPServer[AppContext]) -> AsyncIterator[AppContext]:
+    customer_api = CustomerApi(settings)
     yield AppContext(
-        customer_api=CustomerApi(settings),
+        customer_api=customer_api,
         seller_api=SellerApi(settings),
         docs=DocsClient(settings),
+        customer_context=(
+            CustomerContextCache(customer_api, settings)
+            if settings.can_act_as_customer
+            else None
+        ),
     )
 
 
@@ -56,6 +63,8 @@ def register_tools(server: MCPServer[AppContext], config: Settings = settings) -
     """
     names = market.register(server)
     names += docs.register(server)
+    if config.can_act_as_customer:
+        names += customer.register(server)
     if config.can_act_as_seller:
         names += seller.register(server)
     return names
