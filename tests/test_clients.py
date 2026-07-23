@@ -290,3 +290,23 @@ async def test_list_enrollments_reduces_to_enrollment_info(
     assert enrollment.status == "active"
     assert enrollment.code == "C1"
     assert enrollment.proxy_endpoint == "https://gw.test/a/x"
+
+
+INTERFACES_RESPONSE = [
+    {"name": "canonical", "base_url": "https://gw.test/a/svc"},
+    {"name": "my-enrollment", "base_url": "https://gw.test/e/CODE", "enrollment_id": SVC_ID},
+]
+
+
+@pytest.mark.asyncio
+async def test_list_interfaces_returns_the_customers_interfaces(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=INTERFACES_RESPONSE))
+
+    interfaces = await CustomerApi(_settings()).list_interfaces(SVC_ID, api_key="svcpass_cust")
+
+    names = [i.name for i in interfaces]
+    assert names == ["canonical", "my-enrollment"]
+    enrolled = next(i for i in interfaces if i.name == "my-enrollment")
+    assert str(enrolled.enrollment_id) == SVC_ID
