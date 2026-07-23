@@ -8,6 +8,8 @@ the market tools use this client: they call the customer API *anonymously*.
 
 from __future__ import annotations
 
+from typing import Any
+
 from unitysvc import AccessPlan, AsyncClient
 
 from ..customer_context import EnrollmentInfo
@@ -112,6 +114,19 @@ class CustomerApi:
             )
             for e in enrollments.data
         ]
+
+    async def list_interfaces(self, service_id: str, *, api_key: str | None) -> list[Any]:
+        """The caller's access interfaces for a service (incl. enrollment-bound).
+
+        Authenticated: an enrollment-bound interface (``enrollment_id`` set,
+        ``base_url`` the caller's ``/e/<CODE>``) appears here, which is how
+        code examples get rendered customer-specific.
+        """
+        async with AsyncClient(
+            api_key=api_key,
+            base_url=str(self._settings.customer_api_url),
+        ) as client:
+            return list(await client.services.interfaces(service_id))
 
     async def service_examples(
         self,

@@ -33,3 +33,23 @@ def test_service_view_filters_enrollments_to_this_service() -> None:
 
     assert view.set_secret_names == frozenset({"A"})  # account-wide
     assert view.enrollment_urls == ["https://gw.test/e/C1"]  # s2 excluded
+
+
+from uuid import UUID, uuid4  # noqa: E402
+
+from unitysvc_mcp.tools.customer import _enrollment_interface_name  # noqa: E402
+
+
+class _Iface:
+    def __init__(self, name: str, enrollment_id: UUID | None) -> None:
+        self.name = name
+        self.enrollment_id = enrollment_id
+
+
+def test_enrollment_interface_name_picks_the_enrollment_bound_one() -> None:
+    interfaces = [_Iface("canonical", None), _Iface("my-enrollment", uuid4())]
+    assert _enrollment_interface_name(interfaces) == "my-enrollment"
+
+
+def test_enrollment_interface_name_none_without_an_enrollment() -> None:
+    assert _enrollment_interface_name([_Iface("canonical", None)]) is None
