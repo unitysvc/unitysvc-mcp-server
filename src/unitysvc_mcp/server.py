@@ -27,6 +27,7 @@ from mcp.server import MCPServer
 from .app_context import AppContext
 from .clients import CustomerApi, DocsClient, SellerApi
 from .customer_context import CustomerContextCache
+from .seller_context import SellerContextCache
 from .settings import Settings, settings
 from .tools import customer, docs, market, seller
 
@@ -36,12 +37,16 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(server: MCPServer[AppContext]) -> AsyncIterator[AppContext]:
     customer_api = CustomerApi(settings)
+    seller_api = SellerApi(settings)
     yield AppContext(
         customer_api=customer_api,
-        seller_api=SellerApi(settings),
+        seller_api=seller_api,
         docs=DocsClient(settings),
         customer_context=(
             CustomerContextCache(customer_api, settings) if settings.can_act_as_customer else None
+        ),
+        seller_context=(
+            SellerContextCache(seller_api, settings) if settings.can_act_as_seller else None
         ),
     )
 

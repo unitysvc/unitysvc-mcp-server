@@ -9,6 +9,7 @@ from __future__ import annotations
 from unitysvc_sellers import AsyncClient
 
 from ..models import ServicesPage
+from ..seller_context import SellerServiceInfo
 from ..settings import Settings
 from ._summary import service_summary
 
@@ -41,3 +42,14 @@ class SellerApi:
             count=len(page.data),
             next_cursor=page.next_cursor,
         )
+
+    async def list_service_infos(self, *, api_key: str) -> list[SellerServiceInfo]:
+        """The seller's own services, reduced for SellerContext.
+
+        A single page (matches customer_context's non-paginated snapshot) at
+        the same max page size the seller_list_services tool allows.
+        """
+        page = await self.list_services(api_key=api_key, limit=100)
+        return [
+            SellerServiceInfo(id=item.id, name=item.name, status=item.status) for item in page.data
+        ]

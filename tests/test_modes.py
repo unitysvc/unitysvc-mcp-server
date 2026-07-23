@@ -28,7 +28,7 @@ CUSTOMER_TOOLS = {
     "customer_sdk",
     "customer_cli",
 }
-SELLER_TOOLS = {"seller_list_services"}
+SELLER_TOOLS = {"seller_list_services", "seller_endpoints", "seller_sdk", "seller_cli"}
 
 
 def _settings(**env: str) -> Settings:

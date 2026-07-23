@@ -13,9 +13,67 @@ from mcp.server import MCPServer
 from mcp.server.mcpserver import Context
 from pydantic import Field
 
+from .. import seller_commands
 from ..app_context import AppContext, app
 from ..models import ServicesPage
+from ..seller_context import SellerServiceInfo
 from ..settings import settings
+
+_SERVICE_ID = Annotated[
+    str | None,
+    Field(description="Service id (from seller_list_services). Omit for the command overview."),
+]
+
+
+async def _find(ctx: Context[AppContext], service_id: str) -> SellerServiceInfo | None:
+    cache = app(ctx).seller_context
+    if cache is None:  # pragma: no cover - not registered without a seller key
+        return None
+    context = await cache.get()
+    for info in context.services:
+        if info.id == service_id:
+            return info
+    return None
+
+
+async def seller_endpoints(ctx: Context[AppContext], service_id: _SERVICE_ID = None) -> str:
+    """Raw HTTP notes for managing a service, from the seller side.
+
+    Without a service_id: a pointer to seller_cli/seller_sdk (the seller API
+    has no documented direct raw-HTTP surface). With one: the same pointer,
+    plus your service's current status.
+    """
+    if service_id is None:
+        return seller_commands.endpoints_overview()
+    info = await _find(ctx, service_id)
+    return seller_commands.render_endpoints(service_id, info)
+
+
+async def seller_sdk(ctx: Context[AppContext], service_id: _SERVICE_ID = None) -> str:
+    """Python (`unitysvc_sellers.Client`) usage, generated from the installed unitysvc-sellers.
+
+    With a service_id: a filled snippet to inspect and manage THAT service —
+    submit for review if it isn't yet, otherwise update/run-tests — using your
+    own inventory to pick the next step. Without it: the Client resources and
+    their method signatures.
+    """
+    if service_id is None:
+        return seller_commands.sdk_overview()
+    info = await _find(ctx, service_id)
+    return seller_commands.render_sdk(service_id, info)
+
+
+async def seller_cli(ctx: Context[AppContext], service_id: _SERVICE_ID = None) -> str:
+    """Runnable `usvc_seller` CLI commands, generated from the installed unitysvc-sellers.
+
+    With a service_id: the exact commands to inspect and manage THAT service —
+    submit for review if it isn't yet, otherwise update/run-tests. Without it:
+    the `usvc_seller` command tree.
+    """
+    if service_id is None:
+        return seller_commands.cli_overview()
+    info = await _find(ctx, service_id)
+    return seller_commands.render_cli(service_id, info)
 
 
 async def seller_list_services(
@@ -44,4 +102,7 @@ async def seller_list_services(
 
 def register(server: MCPServer[AppContext]) -> list[str]:
     server.add_tool(seller_list_services)
-    return ["seller_list_services"]
+    server.add_tool(seller_endpoints)
+    server.add_tool(seller_sdk)
+    server.add_tool(seller_cli)
+    return ["seller_list_services", "seller_endpoints", "seller_sdk", "seller_cli"]
