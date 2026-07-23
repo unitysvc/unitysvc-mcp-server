@@ -13,9 +13,9 @@ dependencies = [
     # >=0.1.16 is required: it allows constructing a client without an
     # api_key, which is how anonymous catalog browsing works now that the
     # customer API serves it (unitysvc#1610).
-    # >=0.1.17 for services.usage() / services.documents() (the market usage
-    # tools). Release unitysvc-py with those wrappers before shipping this.
-    "unitysvc-py>=0.1.17",
+    # >=0.1.18 for services.access_plan() -> AccessPlan (the structured
+    # "how to use" plan we render, unitysvc#1638) and services.documents().
+    "unitysvc-py>=0.1.18",
     "unitysvc-sellers>=0.2.19",
     "mcp[cli]==2.0.0b1",
     "pydantic>=2,<3",

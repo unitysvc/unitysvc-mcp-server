@@ -11,6 +11,7 @@ from __future__ import annotations
 from unitysvc import AsyncClient
 
 from ..models import CodeExample, ServiceExamples, ServicesPage
+from ..render import render_access_plan
 from ..settings import Settings
 from ._summary import clean, service_summary
 
@@ -61,17 +62,19 @@ class CustomerApi:
         *,
         api_key: str | None = None,
     ) -> str:
-        """The derived "how to use this service" guide, as markdown.
+        """The "how to use this service" guide, as markdown.
 
-        Generic and anonymous — a per-channel walkthrough (free/paid, secrets
-        to set, enrollment steps) synthesized from metadata (unitysvc#1622).
-        Plain text (no webapp links), which is what an agent wants to read.
+        Fetches the generic, context-free ``AccessPlan`` (unitysvc#1638 — the
+        backend serves structure, not prose) and renders it to markdown here.
+        Anonymous: the plan needs no key. Plain text (no webapp links), which
+        is what an agent wants to read.
         """
         async with AsyncClient(
             api_key=api_key,
             base_url=str(self._settings.customer_api_url),
         ) as client:
-            return await client.services.usage(service_id)
+            plan = await client.services.access_plan(service_id)
+        return render_access_plan(plan)
 
     async def service_examples(
         self,

@@ -154,7 +154,28 @@ async def test_market_tool_never_sends_a_customer_key(
 
 SVC_ID = SERVICE_ROW["id"]
 
-USAGE_RESPONSE = {"markdown": "## How to use this service\n\nUse it directly."}
+# #1638: the endpoint now returns a structured AccessPlan; service_usage renders it.
+USAGE_RESPONSE = {
+    "enrollment_mode": "disallowed",
+    "parameters": [],
+    "interfaces": [
+        {
+            "name": "canonical",
+            "base_url": "https://gw.test/a/svc",
+            "routing_key": {"model": "gpt-4"},
+        }
+    ],
+    "channels": [
+        {
+            "name": "managed",
+            "channel_type": "managed",
+            "free": True,
+            "requires_enrollment": False,
+            "required_secrets": [],
+            "optional_secrets": [],
+        }
+    ],
+}
 
 DOCUMENTS_RESPONSE = {
     "interface": "canonical",
@@ -183,7 +204,10 @@ async def test_service_usage_returns_markdown_anonymously(
     request = seen[-1]
     assert request.url.path.endswith(f"/services/{SVC_ID}/usage")
     assert "authorization" not in {k.lower() for k in request.headers}
-    assert md.startswith("## How to use this service")
+    # The structured plan is rendered to markdown here.
+    assert md.startswith("# How to use this service")
+    assert "SERVICE_BASE_URL` = `https://gw.test/a/svc`" in md
+    assert "Free." in md
 
 
 @pytest.mark.asyncio
