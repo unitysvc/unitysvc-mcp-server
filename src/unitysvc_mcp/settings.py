@@ -84,6 +84,13 @@ class Settings(BaseSettings):
         300,
         alias="UNITYSVC_CUSTOMER_CONTEXT_TTL",
     )
+    # How long (seconds) a seller_* command tool caches the seller's own
+    # inventory snapshot (service ids/names/statuses) before refetching. Short
+    # so a newly submitted or updated service shows up within the window.
+    seller_context_ttl_seconds: int = Field(
+        300,
+        alias="UNITYSVC_SELLER_CONTEXT_TTL",
+    )
 
     @property
     def can_act_as_customer(self) -> bool:

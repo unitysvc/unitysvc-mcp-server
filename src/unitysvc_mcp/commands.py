@@ -12,37 +12,23 @@ v1: a deliberately small first cut — refine later.
 
 from __future__ import annotations
 
-import inspect
-from typing import Any
-
-import typer
 from unitysvc import AccessPlan, Client
 from unitysvc.cli import app as _cli_app
 
+from . import introspect
 from .render import RenderContext
 
 _SDK_RESOURCES = ("groups", "services", "secrets", "enrollments")
 
 
-# --- introspection of the imported package --------------------------------
+# --- introspection of the imported package ----------------------------------
+# Delegates to introspect.py, shared with seller_commands.py; kept as thin
+# wrappers here so the public API this module has always exposed is unchanged.
 
 
 def cli_command_tree() -> list[tuple[str, str]]:
     """Every leaf ``usvc`` command + its short help, from the typer app."""
-    root = typer.main.get_command(_cli_app)
-    out: list[tuple[str, str]] = []
-
-    def walk(command: Any, prefix: str) -> None:
-        for name, sub in (getattr(command, "commands", {}) or {}).items():
-            path = f"{prefix} {name}".strip()
-            if getattr(sub, "commands", None):
-                walk(sub, path)
-            else:
-                help_text = (getattr(sub, "short_help", None) or sub.help or "").strip()
-                out.append((f"usvc {path}", help_text.split("\n")[0]))
-
-    walk(root, "")
-    return sorted(out)
+    return introspect.cli_command_tree(_cli_app)
 
 
 def _sdk_client() -> Client:
@@ -53,23 +39,7 @@ def _sdk_client() -> Client:
 
 def sdk_surface() -> list[tuple[str, list[tuple[str, str, str]]]]:
     """Per resource: ``[(method, signature, first docstring line)]``."""
-    client = _sdk_client()
-    out: list[tuple[str, list[tuple[str, str, str]]]] = []
-    for resource in _SDK_RESOURCES:
-        obj = getattr(client, resource)
-        methods = []
-        for name in sorted(m for m in dir(obj) if not m.startswith("_")):
-            attr = getattr(obj, name)
-            if not callable(attr):
-                continue
-            try:
-                signature = str(inspect.signature(attr))
-            except (TypeError, ValueError):
-                signature = "(...)"
-            doc = (inspect.getdoc(attr) or "").split("\n", 1)[0].strip()
-            methods.append((name, signature, doc))
-        out.append((resource, methods))
-    return out
+    return introspect.sdk_surface(_sdk_client(), _SDK_RESOURCES)
 
 
 # --- helpers over the access plan -----------------------------------------
@@ -103,7 +73,7 @@ def _endpoint_url(plan: AccessPlan, context: RenderContext) -> str | None:
 
 
 def _fence(lang: str, *lines: str) -> list[str]:
-    return [f"```{lang}", *lines, "```", ""]
+    return introspect.fence(lang, *lines)
 
 
 # --- overviews (no service): the introspected surface ----------------------
