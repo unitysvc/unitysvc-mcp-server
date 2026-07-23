@@ -21,7 +21,12 @@ MARKET_TOOLS = {
 DOCS_TOOLS = {"docs_list_topics", "docs_get_topic"}
 # Credential-free tools every deployment advertises, keys or not.
 ANON_TOOLS = MARKET_TOOLS | DOCS_TOOLS
-CUSTOMER_TOOLS = {"customer_service_access"}
+CUSTOMER_TOOLS = {
+    "customer_service_access",
+    "customer_endpoints",
+    "customer_sdk",
+    "customer_cli",
+}
 SELLER_TOOLS = {"seller_list_services"}
 
 
