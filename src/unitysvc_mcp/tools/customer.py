@@ -9,16 +9,20 @@ never carries one.
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import urlsplit
+from uuid import UUID
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver import Context
 from pydantic import Field
 
+from .. import commands
 from ..app_context import AppContext, app
 from ..customer_context import CustomerContext, EnrollmentInfo
+from ..models import ServiceExamples
 from ..render import RenderContext, render_access_plan
+from ..settings import settings
 
 
 def _endpoint_url(enrollment: EnrollmentInfo) -> str | None:
@@ -72,6 +76,108 @@ async def customer_service_access(
     return render_access_plan(plan, context=_service_view(context, service_id))
 
 
+_SERVICE_ID = Annotated[
+    str | None,
+    Field(description="Service id (from market_list_services). Omit for account-level usage."),
+]
+
+
+async def _plan_and_view(ctx: Context[AppContext], service_id: str) -> tuple[object, RenderContext]:
+    application = app(ctx)
+    plan = await application.customer_api.access_plan(service_id)
+    cache = application.customer_context
+    context = await cache.get() if cache is not None else CustomerContext(frozenset(), ())
+    return plan, _service_view(context, service_id)
+
+
+async def customer_cli(ctx: Context[AppContext], service_id: _SERVICE_ID = None) -> str:
+    """Runnable `usvc` CLI commands, generated from the installed unitysvc-py.
+
+    With a service_id: the exact commands to set up and call THAT service —
+    which secrets to set (only the unset ones), enroll if required, and
+    dispatch — filled from your context. Without it: the `usvc` command tree.
+    """
+    if service_id is None:
+        return commands.cli_overview()
+    plan, view = await _plan_and_view(ctx, service_id)
+    return commands.render_cli(service_id, plan, view)  # type: ignore[arg-type]
+
+
+async def customer_sdk(ctx: Context[AppContext], service_id: _SERVICE_ID = None) -> str:
+    """Python (`unitysvc.Client`) usage, generated from the installed unitysvc-py.
+
+    With a service_id: a filled snippet to set up and call THAT service.
+    Without it: the Client resources and their method signatures.
+    """
+    if service_id is None:
+        return commands.sdk_overview()
+    plan, view = await _plan_and_view(ctx, service_id)
+    return commands.render_sdk(service_id, plan, view)  # type: ignore[arg-type]
+
+
+async def customer_endpoints(ctx: Context[AppContext], service_id: _SERVICE_ID = None) -> str:
+    """Raw HTTP (curl) to call a service, from its access plan + your context.
+
+    With a service_id: the curl to call it (your live endpoint URL, auth
+    header). Without it: a pointer to the per-service form.
+    """
+    if service_id is None:
+        return commands.endpoints_overview()
+    plan, view = await _plan_and_view(ctx, service_id)
+    return commands.render_endpoints(service_id, plan, view)  # type: ignore[arg-type]
+
+
+def _enrollment_interface_name(interfaces: list[Any]) -> str | None:
+    """The name of an enrollment-bound interface (its base_url is the /e/<CODE>).
+
+    Rendering a code example against it is what makes the example
+    customer-specific — exactly what the frontend does.
+    """
+    for interface in interfaces:
+        if isinstance(getattr(interface, "enrollment_id", None), UUID):
+            name = getattr(interface, "name", None)
+            if isinstance(name, str):
+                return name
+    return None
+
+
+async def customer_service_example(
+    ctx: Context[AppContext],
+    service_id: Annotated[
+        str, Field(description="Service id, from market_list_services (the `id` field).")
+    ],
+    language: Annotated[
+        str | None, Field(description="Filter by language/mime type, e.g. python, bash.")
+    ] = None,
+) -> ServiceExamples:
+    """Seller-authored code examples, rendered against YOUR enrollment.
+
+    The real, tested snippets for calling the service — usually the highest-
+    fidelity "how to call it" — rendered against your enrollment interface so
+    the base URL is your live `/e/<CODE>`, not a template placeholder. Prefer
+    this over customer_endpoints/sdk/cli when an example exists; those generate
+    commands, this returns the seller's own.
+    """
+    customer_api = app(ctx).customer_api
+    interfaces = await customer_api.list_interfaces(service_id, api_key=settings.api_key)
+    return await customer_api.service_examples(
+        service_id,
+        api_key=settings.api_key,
+        language=language,
+        interface=_enrollment_interface_name(interfaces),
+    )
+
+
 def register(server: MCPServer[AppContext]) -> list[str]:
     server.add_tool(customer_service_access)
-    return ["customer_service_access"]
+    server.add_tool(customer_service_example)
+    server.add_tool(customer_endpoints)
+    server.add_tool(customer_sdk)
+    server.add_tool(customer_cli)
+    return [
+        "customer_service_access",
+        "customer_service_example",
+        "customer_endpoints",
+        "customer_sdk",
+        "customer_cli",
+    ]
