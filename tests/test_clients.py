@@ -229,3 +229,64 @@ async def test_service_examples_filters_by_language_and_parses_envelope(
     assert [(e.title, e.language, e.content) for e in result.examples] == [
         ("Python code example", "python", "print('hi')")
     ]
+
+
+SECRETS_RESPONSE = {
+    "count": 1,
+    "data": [
+        {
+            "name": "OPENAI_API_KEY",
+            "id": SVC_ID,
+            "owner_type": "customer",
+            "owner_id": SVC_ID,
+            "role_id": None,
+            "sensitive": True,
+            "value": None,
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": None,
+            "last_used_at": None,
+        }
+    ],
+}
+ENROLLMENTS_RESPONSE = {
+    "count": 1,
+    "skip": 0,
+    "limit": 100,
+    "data": [
+        {
+            "id": SVC_ID,
+            "service_id": SVC_ID,
+            "status": "active",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "code": "C1",
+            "proxy_endpoint": "https://gw.test/a/x",
+        }
+    ],
+}
+
+
+@pytest.mark.asyncio
+async def test_list_secret_names_returns_names_not_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=SECRETS_RESPONSE))
+
+    names = await CustomerApi(_settings()).list_secret_names(api_key="svcpass_cust")
+
+    assert names == frozenset({"OPENAI_API_KEY"})
+
+
+@pytest.mark.asyncio
+async def test_list_enrollments_reduces_to_enrollment_info(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_transport(monkeypatch, lambda r: httpx.Response(200, json=ENROLLMENTS_RESPONSE))
+
+    enrollments = await CustomerApi(_settings()).list_enrollments(api_key="svcpass_cust")
+
+    assert len(enrollments) == 1
+    enrollment = enrollments[0]
+    assert enrollment.service_id == SVC_ID
+    assert enrollment.status == "active"
+    assert enrollment.code == "C1"
+    assert enrollment.proxy_endpoint == "https://gw.test/a/x"

@@ -11,7 +11,7 @@ from typing import Any
 
 from unitysvc import AccessPlan
 
-from unitysvc_mcp.render import render_access_plan
+from unitysvc_mcp.render import RenderContext, render_access_plan
 
 
 def _plan(**fields: Any) -> AccessPlan:
@@ -133,3 +133,46 @@ def test_required_and_optional_secrets_with_default() -> None:
     assert "- `OPENAI_API_KEY` — your key" in md
     assert "Optional secrets:" in md
     assert "- `ORG` — org id (defaults to `acme`)" in md
+
+
+def test_context_marks_secrets_set_and_not_set() -> None:
+    plan = _plan(
+        channels=[
+            _channel(
+                free=True,
+                required_secrets=[
+                    {"name": "OPENAI_API_KEY", "description": "your key"},
+                    {"name": "ANTHROPIC_API_KEY"},
+                ],
+            )
+        ]
+    )
+    ctx = RenderContext(set_secret_names=frozenset({"OPENAI_API_KEY"}), enrollment_urls=[])
+    md = render_access_plan(plan, context=ctx)
+
+    assert "- `OPENAI_API_KEY` (set) — your key" in md
+    assert "- `ANTHROPIC_API_KEY` (not set)" in md
+
+
+def test_context_shows_live_enrollment_urls_instead_of_hint() -> None:
+    plan = _plan(
+        enrollment_mode="required",
+        channels=[_channel(free=True, requires_enrollment=True)],
+    )
+    ctx = RenderContext(
+        set_secret_names=frozenset(),
+        enrollment_urls=["https://gw.test/e/CODE123"],
+    )
+    md = render_access_plan(plan, context=ctx)
+
+    assert "Your endpoint URL(s):" in md
+    assert "- https://gw.test/e/CODE123" in md
+    assert "Enroll to receive your endpoint" not in md  # generic hint replaced
+
+
+def test_context_without_enrollment_urls_keeps_the_generic_hint() -> None:
+    plan = _plan(enrollment_mode="required", channels=[_channel(free=True)])
+    ctx = RenderContext(set_secret_names=frozenset(), enrollment_urls=[])
+    md = render_access_plan(plan, context=ctx)
+
+    assert "Enroll to receive your endpoint" in md
