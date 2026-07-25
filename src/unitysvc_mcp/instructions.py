@@ -72,8 +72,9 @@ when the matching key is configured.
    headers (`Authorization: Bearer`, `x-api-key`, or `x-goog-api-key`, so
    existing OpenAI / Anthropic / Google SDKs work unchanged), not Bearer only.
    But that is not the only way to consume a service. Reach it however suits
-   you: `curl`, a script (Python / shell / JavaScript), the `unitysvc-py` SDK,
-   this MCP server acting on your behalf, or a third-party tool.
+   you: `curl`, a script (Python / shell / JavaScript), the customer SDK
+   (`unitysvc-py`) or its `usvc` CLI, this MCP server acting on your behalf, or
+   a third-party tool.
    `market_service_example` and the `customer_*` command tools generate
    ready-to-run versions of each. A call need not be immediate, either — the
    platform can also trigger a service on a delay or on a schedule (see the
@@ -86,10 +87,11 @@ and the platform does the rest — customer acquisition through the marketplace,
 plus metering and billing on your behalf. You set a price; the gateway meters
 usage and settles payouts, so you don't build accounts, quotas, or invoicing.
 
-Author services with the UnitySVC seller SDK / `usvc` CLI: an *offering* (the
-technical spec — upstream endpoint, protocol, auth, pricing) plus one or more
-*listings* (the customer-facing price and docs). With a seller key configured,
-the `seller_*` tools list your services and show how to drive them.
+Author services with the seller SDK (`unitysvc-sellers`) or its `usvc_seller`
+CLI: an *offering* (the technical spec — upstream endpoint, protocol, auth,
+pricing) plus one or more *listings* (the customer-facing price and docs). With
+a seller key configured, the `seller_*` tools list your services and show how to
+drive them.
 
 For the concepts behind any of this — channels, secrets, enrollment, wallets,
 billing, offerings vs listings, payouts — read the docs topics rather than
