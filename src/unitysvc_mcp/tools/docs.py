@@ -45,7 +45,10 @@ async def docs_get_topic(
 
     Returns the topic's prose (e.g. `alias`, `customer`, or `glossary` for the
     definitions of platform terms). Use docs_list_topics first to see which
-    slugs exist.
+    slugs exist. Topics cross-reference each other with links written
+    `[channel](?topic=channel)`; to follow one, call this tool again with that
+    slug (here, `channel`), and keep following references until you have the
+    detail you need.
     """
     return await app(ctx).docs.get_topic(slug)
 
