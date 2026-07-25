@@ -15,9 +15,12 @@ from __future__ import annotations
 PRIMER = """\
 # UnitySVC
 
-UnitySVC is a marketplace for LLM and API services. Sellers publish
-provider-backed services; customers call them through the UnitySVC gateway,
-which handles authentication, routing, and billing.
+UnitySVC is a multi-protocol gateway and marketplace for online services.
+Sellers publish provider-backed services; customers call them through the
+UnitySVC gateway, which handles authentication, routing, metering, and billing.
+The gateway speaks several protocols — currently HTTP APIs (`api`), object
+storage (`s3`), and email (`smtp`) — so a "service" spans a broad range: LLM and
+other HTTP APIs, S3 buckets, SMTP relays, and more.
 
 This is a private platform your training data does NOT cover. Do not answer
 questions about how UnitySVC works from prior knowledge — use the tools below,
@@ -40,8 +43,9 @@ and say so if none can answer.
   account: `customer_service_access` folds in your secrets and enrollments, and
   `customer_cli` / `customer_sdk` / `customer_endpoints` generate ready-to-run
   commands.
-- **seller_\\*** (needs a seller key) — publishing and managing the services you
-  offer.
+- **seller_\\*** (needs a seller key) — inspect and manage the services you
+  publish (`seller_list_services`, and `seller_endpoints` / `seller_sdk` /
+  `seller_cli` for how to drive them).
 
 Tools you don't see aren't available in this deployment: the hosted anonymous
 server exposes only `market_*` and `docs_*`; `customer_*` / `seller_*` appear
@@ -54,9 +58,27 @@ when the matching key is configured.
    `market_service_access(service_id)` (or `customer_service_access` for your
    own account); get code with `market_service_example` / the `customer_*`
    command tools.
-3. Set any required secrets or enroll as that guide says, then call the
-   service's gateway base_url with your key as a Bearer token.
+3. Most services work directly — just call them with your key. Some need setup
+   first, which the access guide spells out per service:
+   - **customer secrets** — you supply an upstream credential (bring-your-own-key),
+     stored once and injected upstream by the gateway;
+   - **enrollment** — you enroll before use, sometimes with parameters, and get
+     a stable per-enrollment endpoint `/e/<CODE>` to call.
+4. Call the service's gateway base_url with your key as a Bearer token.
+
+## Publishing a service (seller)
+
+UnitySVC is the seller's path to market: **bring an endpoint** for your service
+and the platform does the rest — customer acquisition through the marketplace,
+plus metering and billing on your behalf. You set a price; the gateway meters
+usage and settles payouts, so you don't build accounts, quotas, or invoicing.
+
+Author services with the UnitySVC seller SDK / `usvc` CLI: an *offering* (the
+technical spec — upstream endpoint, protocol, auth, pricing) plus one or more
+*listings* (the customer-facing price and docs). With a seller key configured,
+the `seller_*` tools list your services and show how to drive them.
 
 For the concepts behind any of this — channels, secrets, enrollment, wallets,
-billing, groups — read the docs topics rather than guessing.
+billing, offerings vs listings, payouts — read the docs topics rather than
+guessing.
 """

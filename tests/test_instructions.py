@@ -28,3 +28,16 @@ def test_primer_maps_the_tools_and_forbids_guessing() -> None:
     assert "training data" in PRIMER
     # and explains the cross-reference format so the model follows topic links.
     assert "?topic=" in PRIMER
+
+
+def test_primer_frames_platform_customer_and_seller_accurately() -> None:
+    # Multi-protocol gateway, not just LLM/API,
+    assert "multi-protocol" in PRIMER
+    assert "s3" in PRIMER and "smtp" in PRIMER
+    # customer access has three shapes: direct, secrets, enrollment,
+    assert "directly" in PRIMER
+    assert "customer secrets" in PRIMER
+    assert "enrollment" in PRIMER
+    # and the seller value prop: bring an endpoint, platform does market/billing.
+    assert "bring an endpoint" in PRIMER
+    assert "billing" in PRIMER
