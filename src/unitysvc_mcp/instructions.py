@@ -67,7 +67,12 @@ when the matching key is configured.
      canonical service URL, an enrollment-specific URL, or a generic
      `/e/<CODE>`), which differ in their limits — the access guide gives the
      one to use.
-4. Call the service's gateway base_url with your key as a Bearer token.
+4. To call it, the underlying mechanism is an authenticated request to the
+   service's gateway base_url (your key as a Bearer token) — but that is not the
+   only way to consume a service. Reach it however suits you: `curl`, a script
+   (Python / shell / JavaScript), the `unitysvc-py` SDK, this MCP server acting
+   on your behalf, or a third-party tool. `market_service_example` and the
+   `customer_*` command tools generate ready-to-run versions of each.
 
 ## Publishing a service (seller)
 
