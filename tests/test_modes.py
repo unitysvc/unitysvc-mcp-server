@@ -18,6 +18,13 @@ MARKET_TOOLS = {
     "market_service_access",
     "market_service_example",
 }
+# Public, api-key-independent platform docs — always registered, like market_*.
+PLATFORM_TOOLS = {
+    "platform_list_topics",
+    "platform_read_topic",
+}
+# The anonymous (hosted, empty-env) surface is everything that needs no key.
+ANONYMOUS_TOOLS = MARKET_TOOLS | PLATFORM_TOOLS
 SELLER_TOOLS = {"seller_list_services"}
 
 
@@ -33,7 +40,7 @@ def test_no_keys_registers_market_tools_only() -> None:
     """This is the hosted deployment: an empty environment."""
     config = _settings()
 
-    assert _registered(config) == MARKET_TOOLS
+    assert _registered(config) == ANONYMOUS_TOOLS
     assert not config.can_act_as_seller
     assert config.mode == "context only (anonymous)"
 
@@ -41,7 +48,7 @@ def test_no_keys_registers_market_tools_only() -> None:
 def test_seller_key_adds_the_seller_tool() -> None:
     config = _settings(UNITYSVC_SELLER_API_KEY="svcpass_sell")
 
-    assert _registered(config) == MARKET_TOOLS | SELLER_TOOLS
+    assert _registered(config) == ANONYMOUS_TOOLS | SELLER_TOOLS
     assert config.can_act_as_seller
 
 
@@ -56,7 +63,7 @@ def test_an_unrecognised_customer_key_changes_nothing() -> None:
         UNITYSVC_SELLER_API_KEY="svcpass_sell",
     )
 
-    assert _registered(config) == MARKET_TOOLS | SELLER_TOOLS
+    assert _registered(config) == ANONYMOUS_TOOLS | SELLER_TOOLS
     assert config.mode == "context + acting as seller"
     assert not hasattr(config, "customer_api_key")
 
@@ -111,8 +118,12 @@ def test_tool_names_match_their_module_prefix() -> None:
     """
     from mcp.server import MCPServer
 
-    from unitysvc_mcp.tools import market, seller
+    from unitysvc_mcp.tools import market, platform, seller
 
-    for module, prefix in ((market, "market_"), (seller, "seller_")):
+    for module, prefix in (
+        (market, "market_"),
+        (platform, "platform_"),
+        (seller, "seller_"),
+    ):
         for name in module.register(MCPServer("test")):
             assert name.startswith(prefix), f"{name} is not in the {prefix} module"

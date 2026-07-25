@@ -12,5 +12,6 @@ market tools legitimately call the *customer* API with no key at all —
 
 from .customer import CustomerApi
 from .seller import SellerApi
+from .topics import TopicsApi
 
-__all__ = ["CustomerApi", "SellerApi"]
+__all__ = ["CustomerApi", "SellerApi", "TopicsApi"]

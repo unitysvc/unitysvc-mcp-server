@@ -44,6 +44,14 @@ class Settings(BaseSettings):
         "https://seller.unitysvc.com/v1",
         alias="UNITYSVC_SELLER_API_URL",
     )
+    # Platform docs ("topics") are served by the webapp, not the API, so they
+    # get their own host — the canonical public site. Public and api-key
+    # independent: the same content for customer, seller, or anonymous
+    # (unitysvc/unitysvc#1662).
+    docs_url: AnyHttpUrl = Field(
+        "https://unitysvc.com",
+        alias="UNITYSVC_DOCS_URL",
+    )
 
     # --- Transport ---------------------------------------------------------
     # stdio by default: the common case is a user's own MCP client spawning

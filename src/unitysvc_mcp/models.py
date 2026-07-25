@@ -60,3 +60,14 @@ class ServiceExamples(BaseModel):
     interface: str | None = None
     available_interfaces: list[str] = []
     examples: list[CodeExample] = []
+
+
+class TopicRef(BaseModel):
+    """One entry in the platform-docs topic index (unitysvc/unitysvc#1662).
+
+    ``slug`` is the id used to fetch the topic's markdown (``GET /topics/<slug>``,
+    surfaced by ``platform_read_topic``); ``title`` is its human name.
+    """
+
+    slug: str
+    title: str

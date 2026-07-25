@@ -25,9 +25,10 @@ from contextlib import asynccontextmanager
 from mcp.server import MCPServer
 
 from .app_context import AppContext
-from .clients import CustomerApi, SellerApi
+from .clients import CustomerApi, SellerApi, TopicsApi
+from .instructions import PRIMER
 from .settings import Settings, settings
-from .tools import market, seller
+from .tools import market, platform, seller
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +38,14 @@ async def lifespan(server: MCPServer[AppContext]) -> AsyncIterator[AppContext]:
     yield AppContext(
         customer_api=CustomerApi(settings),
         seller_api=SellerApi(settings),
+        topics_api=TopicsApi(settings),
     )
 
 
-mcp = MCPServer("UnitySVC MCP Server", lifespan=lifespan)
+# ``instructions`` reach the client when the connector loads, before any tool
+# call — the platform primer grounds every session and tells the model to defer
+# platform questions to the docs tools rather than its training data.
+mcp = MCPServer("UnitySVC MCP Server", instructions=PRIMER, lifespan=lifespan)
 
 
 def register_tools(server: MCPServer[AppContext], config: Settings = settings) -> list[str]:
@@ -54,6 +59,10 @@ def register_tools(server: MCPServer[AppContext], config: Settings = settings) -
     gets `market_*` only.
     """
     names = market.register(server)
+    # Platform docs are public and api-key independent, so they register
+    # unconditionally alongside the marketplace — the hosted empty-environment
+    # deployment serves them too.
+    names += platform.register(server)
     if config.can_act_as_seller:
         names += seller.register(server)
     return names
