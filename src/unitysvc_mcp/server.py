@@ -27,6 +27,7 @@ from mcp.server import MCPServer
 from .app_context import AppContext
 from .clients import CustomerApi, DocsClient, SellerApi
 from .customer_context import CustomerContextCache
+from .instructions import PRIMER
 from .seller_context import SellerContextCache
 from .settings import Settings, settings
 from .tools import customer, docs, market, seller
@@ -51,7 +52,10 @@ async def lifespan(server: MCPServer[AppContext]) -> AsyncIterator[AppContext]:
     )
 
 
-mcp = MCPServer("UnitySVC MCP Server", lifespan=lifespan)
+# ``instructions`` reach the client when the connector loads, before any tool
+# call — the platform primer grounds every session and tells the model to defer
+# platform questions to the docs_* topics rather than its training data.
+mcp = MCPServer("UnitySVC MCP Server", instructions=PRIMER, lifespan=lifespan)
 
 
 def register_tools(server: MCPServer[AppContext], config: Settings = settings) -> list[str]:
