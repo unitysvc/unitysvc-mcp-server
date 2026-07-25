@@ -41,6 +41,12 @@ def test_primer_frames_platform_customer_and_seller_accurately() -> None:
     # and the seller value prop: bring an endpoint, platform does market/billing.
     assert "bring an endpoint" in PRIMER
     assert "billing" in PRIMER
-    # a gateway call is the mechanism, not the only way to consume a service.
+    # a gateway call is the mechanism, not the only way to consume a service,
     assert "curl" in PRIMER
     assert "third-party" in PRIMER
+    # the key rides any of three auth headers, not Bearer only,
+    assert "x-api-key" in PRIMER
+    assert "x-goog-api-key" in PRIMER
+    # and calls can be deferred/scheduled, not only immediate.
+    assert "delay" in PRIMER
+    assert "schedule" in PRIMER
