@@ -13,15 +13,16 @@ authorization stay in the UnitySVC backend.
 >
 > | | Status |
 > |---|---|
-> | Market + seller listing tools via the official SDKs | ✅ implemented |
+> | Market catalog + seller listing tools via the official SDKs | ✅ implemented |
 > | Docs/topic tools (`docs_list_topics`, `docs_get_topic`) | ✅ implemented |
+> | Platform primer in the server `instructions` | ✅ implemented |
+> | Customer-aware access + code-generation tools (`customer_*`, `seller_*` endpoints/sdk/cli) | ✅ implemented |
 > | Anonymous marketplace browsing (no credentials) | ✅ implemented |
 > | stdio transport (default) and HTTP (opt-in) | ✅ implemented |
-> | Credentials from `UNITYSVC_SELLER_API_KEY` | ✅ implemented |
+> | Credentials from `UNITYSVC_API_KEY` (customer) / `UNITYSVC_SELLER_API_KEY` (seller) | ✅ implemented |
 > | Tools split by mode, advertised on credentials present | ✅ implemented |
-> | Published to PyPI | ✅ v0.1.0 |
+> | Published to PyPI | ✅ v0.1.4 |
 > | `mcp.unitysvc.com` deployed | ⏳ not yet deployed |
-> | `how_to_call` code-generation tool | ⏳ planned |
 >
 > The earlier role-inference bug — where a valid *seller* key resolved to a customer
 > principal and seller tools rejected it — is fixed by removing role inference entirely.
