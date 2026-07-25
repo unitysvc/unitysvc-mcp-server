@@ -67,18 +67,16 @@ when the matching key is configured.
      canonical service URL, an enrollment-specific URL, or a generic
      `/e/<CODE>`), which differ in their limits — the access guide gives the
      one to use.
-4. To call it, the underlying mechanism is an authenticated request to the
-   service's gateway base_url — your key sent in any of the accepted auth
-   headers (`Authorization: Bearer`, `x-api-key`, or `x-goog-api-key`, so
-   existing OpenAI / Anthropic / Google SDKs work unchanged), not Bearer only.
-   But that is not the only way to consume a service. Reach it however suits
-   you: `curl`, a script (Python / shell / JavaScript), the customer SDK
-   (`unitysvc-py`) or its `usvc` CLI, this MCP server acting on your behalf, or
-   a third-party tool.
-   `market_service_example` and the `customer_*` command tools generate
-   ready-to-run versions of each. A call need not be immediate, either — the
-   platform can also trigger a service on a delay or on a schedule (see the
-   request-primitives docs topics).
+4. Underneath, a call is just an authenticated request to the service's gateway
+   base_url (your key goes in any of several accepted auth headers, so common
+   SDKs work unchanged) — but you rarely need to hand-write that. Prefer the
+   code-example tools: `market_service_example` returns runnable code for a
+   service in several languages, and the `customer_*` tools tailor it to your
+   account (secrets, enrollments). A direct call is also not the only way to
+   consume a service — you can drive one from `curl`, a script, the customer SDK
+   (`unitysvc-py`) / `usvc` CLI, this MCP server, or a third-party tool, and
+   trigger it immediately or on a delay or schedule (see the request-primitives
+   docs topics).
 
 ## Publishing a service (seller)
 

@@ -49,9 +49,11 @@ def test_primer_frames_platform_customer_and_seller_accurately() -> None:
     # a gateway call is the mechanism, not the only way to consume a service,
     assert "curl" in PRIMER
     assert "third-party" in PRIMER
-    # the key rides any of three auth headers, not Bearer only,
-    assert "x-api-key" in PRIMER
-    assert "x-goog-api-key" in PRIMER
-    # and calls can be deferred/scheduled, not only immediate.
+    # the key rides one of several auth headers, not Bearer only,
+    assert "several accepted auth headers" in PRIMER
+    # calls can be deferred/scheduled, not only immediate,
     assert "delay" in PRIMER
     assert "schedule" in PRIMER
+    # and it points the model at the per-language code-example tools.
+    assert "market_service_example" in PRIMER
+    assert "languages" in PRIMER
