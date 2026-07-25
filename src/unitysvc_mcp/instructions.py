@@ -62,8 +62,11 @@ when the matching key is configured.
    first, which the access guide spells out per service:
    - **customer secrets** — you supply an upstream credential (bring-your-own-key),
      stored once and injected upstream by the gateway;
-   - **enrollment** — you enroll before use, sometimes with parameters, and get
-     a stable per-enrollment endpoint `/e/<CODE>` to call.
+   - **enrollment** — you enroll before use, sometimes with parameters; an
+     enrolled service can then be called through more than one URL form (the
+     canonical service URL, an enrollment-specific URL, or a generic
+     `/e/<CODE>`), which differ in their limits — the access guide gives the
+     one to use.
 4. Call the service's gateway base_url with your key as a Bearer token.
 
 ## Publishing a service (seller)
