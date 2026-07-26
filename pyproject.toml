@@ -1,6 +1,6 @@
 [project]
 name = "unitysvc-mcp-server"
-version = "0.1.5"
+version = "0.1.6"
 description = "UnitySVC MCP server starter"
 readme = "README.md"
 requires-python = ">=3.11"
