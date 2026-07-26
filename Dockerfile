@@ -48,6 +48,9 @@ ENV UNITYSVC_MCP_PORT=8000
 # A deployment that sets UNITYSVC_API_KEY / UNITYSVC_SELLER_API_KEY here would
 # make every caller act as whoever owns that key.
 
-EXPOSE 8000
+# Prometheus metrics on a dedicated port (unitysvc-mcp-server#16). Kept off the
+# MCP port on purpose: the mcp.unitysvc.com ingress forwards `/` to 8000, so a
+# `/metrics` there would be public — this port is scraped in-cluster only.
+EXPOSE 8000 9090
 
 CMD ["unitysvc-mcp-server"]

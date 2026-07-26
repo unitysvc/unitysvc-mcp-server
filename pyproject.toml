@@ -1,6 +1,6 @@
 [project]
 name = "unitysvc-mcp-server"
-version = "0.1.5"
+version = "0.1.6"
 description = "UnitySVC MCP server starter"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,6 +20,9 @@ dependencies = [
     "mcp[cli]==2.0.0b1",
     "pydantic>=2,<3",
     "pydantic-settings>=2,<3",
+    # Prometheus instrumentation for the hosted deployment (#16). The platform
+    # standard is Prometheus pull, same as the backend and the gateways.
+    "prometheus-client>=0.20,<1",
 ]
 
 [project.scripts]

@@ -73,6 +73,17 @@ class Settings(BaseSettings):
     host: str = Field("127.0.0.1", alias="UNITYSVC_MCP_HOST")
     port: int = Field(8000, alias="UNITYSVC_MCP_PORT")
 
+    # --- Metrics -----------------------------------------------------------
+    # Prometheus metrics for the hosted deployment (unitysvc-mcp-server#16).
+    # Served on their own port, never the MCP port: the mcp.unitysvc.com
+    # ingress forwards `/` to the MCP port, so a `/metrics` there would be
+    # public; a dedicated ClusterIP-only port the ingress never routes to
+    # stays internal. Only started under the http transport — a stdio server on
+    # the user's laptop opens no port.
+    metrics_enabled: bool = Field(True, alias="UNITYSVC_MCP_METRICS_ENABLED")
+    metrics_port: int = Field(9090, alias="UNITYSVC_MCP_METRICS_PORT")
+    metrics_host: str = Field("0.0.0.0", alias="UNITYSVC_MCP_METRICS_HOST")
+
     default_catalog_group: str | None = Field(
         None,
         alias="UNITYSVC_DEFAULT_CATALOG_GROUP",
