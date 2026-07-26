@@ -28,6 +28,7 @@ from .app_context import AppContext
 from .clients import CustomerApi, DocsClient, SellerApi
 from .customer_context import CustomerContextCache
 from .instructions import PRIMER
+from .metrics import install_metrics, start_metrics_server
 from .seller_context import SellerContextCache
 from .settings import Settings, settings
 from .tools import customer, docs, market, seller
@@ -79,6 +80,11 @@ def register_tools(server: MCPServer[AppContext], config: Settings = settings) -
 
 _REGISTERED = register_tools(mcp)
 
+# Instrument once, at startup. Installing the middleware is cheap and keeps both
+# transports symmetric; only the hosted HTTP process serves the numbers (below).
+if settings.metrics_enabled:
+    install_metrics(mcp, _REGISTERED, settings.mode)
+
 
 def main() -> None:
     logger.info(
@@ -88,6 +94,10 @@ def main() -> None:
         ",".join(_REGISTERED),
     )
     if settings.transport == "http":
+        # Metrics on their own port before the blocking run() — the stdio path
+        # never reaches here, so a user's laptop opens no port.
+        if settings.metrics_enabled:
+            start_metrics_server(settings.metrics_port, settings.metrics_host)
         mcp.run(transport="streamable-http", host=settings.host, port=settings.port)
     else:
         mcp.run(transport="stdio")
