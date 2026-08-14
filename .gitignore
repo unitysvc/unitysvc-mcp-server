@@ -6,8 +6,3 @@ dist/
 *.egg-info/
 .env
 .DS_Store
-
-# Connectivity/code-example test artifacts written by `usvc_seller specs run-tests`
-services/specs/**/*.out
-services/specs/**/*.err
-services/specs/**/*.status
