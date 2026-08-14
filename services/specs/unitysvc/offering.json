@@ -2,7 +2,7 @@
   "capabilities": [
     "mcp"
   ],
-  "description": "The UnitySVC platform's own MCP server: browse the marketplace catalog and read platform documentation from inside any MCP client.\n\nEnrolling in this service through the UnitySVC MCP gateway adds five tools to your AI client \u2014 three for the service catalog (what is offered, how to sign up, runnable code examples) and two for the platform docs (list topics, read a topic as markdown). No credentials are required: this upstream is the anonymous surface, so every tool here answers from public catalog and documentation data.\n\nBecause it is reached through the gateway, it needs no separate MCP server entry in your client configuration \u2014 one endpoint, and enrollment decides what appears.",
+  "description": "The UnitySVC marketplace and platform docs, as MCP tools. Browse what's offered, learn how to call it, and read the documentation without leaving your AI client.\n\nEnrolling adds five tools: three for the catalog \u2014 what's offered, how to sign up for a service, and runnable code examples for calling it \u2014 and two for the docs, listing the available topics and reading any topic as markdown.\n\nNo credentials required. This is the anonymous surface, so every tool answers from public catalog and documentation data.\n\nReached through the UnitySVC MCP gateway, so there's no separate server to add to your client configuration: one endpoint, and your enrollments decide what appears.",
   "details": {
     "tools": [
       {
