@@ -94,6 +94,58 @@ def _verb(ch: ChannelPlan, mode: str) -> str | None:
     return None
 
 
+def _channel_field(ch: ChannelPlan, name: str) -> Any:
+    """A ChannelPlan field by name, tolerating an older generated model.
+
+    Fields the installed SDK's generated model doesn't know yet (its models lag
+    the backend schema) arrive in ``additional_properties`` — read the typed
+    attribute first, then fall back there.
+    """
+    value = getattr(ch, name, None)
+    if value is not None:
+        return value
+    extra = getattr(ch, "additional_properties", None)
+    return extra.get(name) if isinstance(extra, dict) else None
+
+
+def _applicable_interface_names(ch: ChannelPlan) -> list[str] | None:
+    """The channel's declared ``applicable_interfaces`` (unitysvc#1825), or None.
+
+    Instruction-only channel↔interface pairing; ``None`` means undeclared, in
+    which case every shared interface stays applicable.
+    """
+    raw = _channel_field(ch, "applicable_interfaces")
+    if not isinstance(raw, list):
+        return None
+    names = [n for n in raw if isinstance(n, str) and n]
+    return names or None
+
+
+def _channel_call_lines(
+    ch: ChannelPlan, interfaces: list[Any], mode: str, multi: bool
+) -> list[str]:
+    """Per-channel "Call at" lines for a direct channel (unitysvc#1825).
+
+    Composed from the channel's applicable interfaces (declared, or every
+    shared interface when undeclared), with the ``@<channel>`` pin appended.
+    Suppressed for the lone-channel/undeclared case — the Endpoint section
+    already says it — and for enrollable channels, whose URL is per-enrollment.
+    """
+    if ch.requires_enrollment is True or mode == "required":
+        return []
+    names = _applicable_interface_names(ch)
+    if names is None and not multi:
+        return []
+    pool = [i for i in interfaces if _str(getattr(i, "base_url", None))]
+    if names is not None:
+        pool = [i for i in pool if _str(getattr(i, "name", None)) in names]
+    if not pool:
+        return []
+    sel = _str(_channel_field(ch, "selector")) or ""
+    note = f" (the `{sel}` suffix pins this channel)" if sel else ""
+    return [f"- Call at: `{_str(i.base_url)}{sel}`{note}" for i in pool]
+
+
 def _secret_bullets(
     label: str,
     secrets: list[SecretRequirement],
@@ -145,18 +197,38 @@ def render_access_plan(plan: AccessPlan, *, context: RenderContext | None = None
 
     # Endpoint — how to actually call it.
     out += ["", "## Endpoint"]
+    plan_interfaces = _list(plan.interfaces)
     if mode == "disallowed":
-        rows: list[tuple[str, str]] = []
-        for iface in _list(plan.interfaces):
-            base_url = _str(iface.base_url)
-            if base_url:
-                rows.append(("SERVICE_BASE_URL", base_url))
-            rows += [(str(k).upper(), str(v)) for k, v in _dict(iface.routing_key).items()]
-        if rows:
-            out.append("Call the service at:")
-            out += [f"- `{key}` = `{value}`" for key, value in rows]
+        urled = [i for i in plan_interfaces if _str(getattr(i, "base_url", None))]
+        if len(urled) > 1:
+            # Several shared interfaces (e.g. bedrock's OpenAI-style
+            # provider_api vs native-runtime converse_api): name each one, and
+            # let each channel below say which it uses (unitysvc#1825).
+            out.append(
+                "This service has several interfaces — each channel below lists the one(s) it uses:"
+            )
+            for iface in urled:
+                name = _str(getattr(iface, "name", None))
+                url = _str(iface.base_url)
+                line = f"- `{name}`: `{url}`" if name else f"- `{url}`"
+                routing = ", ".join(
+                    f"`{str(k).upper()}` = `{v}`" for k, v in _dict(iface.routing_key).items()
+                )
+                if routing:
+                    line += f" ({routing})"
+                out.append(line)
         else:
-            out.append("Call the service at its gateway interface.")
+            rows: list[tuple[str, str]] = []
+            for iface in plan_interfaces:
+                base_url = _str(iface.base_url)
+                if base_url:
+                    rows.append(("SERVICE_BASE_URL", base_url))
+                rows += [(str(k).upper(), str(v)) for k, v in _dict(iface.routing_key).items()]
+            if rows:
+                out.append("Call the service at:")
+                out += [f"- `{key}` = `{value}`" for key, value in rows]
+            else:
+                out.append("Call the service at its gateway interface.")
     elif context is not None and context.enrollment_urls:
         out.append("Your endpoint URL(s):")
         out += [f"- {url}" for url in context.enrollment_urls]
@@ -172,7 +244,17 @@ def render_access_plan(plan: AccessPlan, *, context: RenderContext | None = None
                 out += ["", f"### {_str(ch.name) or ''}"]
             verb = _verb(ch, mode)
             out.append(f"{_price(ch)}." + (f" {verb}" if verb else ""))
+            # Secrets and enrollment are separate prerequisites (unitysvc#1813):
+            # enrolling never collects secrets, so a channel needing both must
+            # say so or "Enroll" reads like the whole story.
+            enrolls = ch.requires_enrollment is True or mode == "required"
+            if enrolls and _list(ch.required_secrets):
+                out.append(
+                    "Two separate steps are required: set the secrets below "
+                    "AND enroll — enrolling alone is not enough."
+                )
             out += _secret_bullets("Secrets to set:", _list(ch.required_secrets), set_names)
             out += _secret_bullets("Optional secrets:", _list(ch.optional_secrets), set_names)
+            out += _channel_call_lines(ch, plan_interfaces, mode, multi)
 
     return "\n".join(out).strip() + "\n"

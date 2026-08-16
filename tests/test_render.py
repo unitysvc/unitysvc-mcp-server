@@ -176,3 +176,96 @@ def test_context_without_enrollment_urls_keeps_the_generic_hint() -> None:
     md = render_access_plan(plan, context=ctx)
 
     assert "Enroll to receive your endpoint" in md
+
+
+def test_multi_interface_channels_pair_via_applicable_interfaces() -> None:
+    """unitysvc#1825: a bedrock-shaped plan — two shared interfaces, each
+    channel declaring the one it is reached through. The declaration arrives
+    via ``from_dict`` (additional_properties until the SDK regenerates)."""
+    gw = "https://api.staging.svcpass.com"
+    md = render_access_plan(
+        _plan(
+            interfaces=[
+                {"name": "converse_api", "base_url": f"{gw}/bedrock-runtime/model/voxtral"},
+                {
+                    "name": "provider_api",
+                    "base_url": f"{gw}/bedrock",
+                    "routing_key": {"model": "voxtral"},
+                },
+            ],
+            channels=[
+                _channel(
+                    name="byok",
+                    channel_type="byok",
+                    applicable_interfaces=["provider_api"],
+                ),
+                _channel(
+                    name="converse",
+                    channel_type="byok",
+                    selector="@converse",
+                    applicable_interfaces=["converse_api"],
+                ),
+            ],
+        )
+    )
+    # The endpoint section names both interfaces instead of two bare
+    # SERVICE_BASE_URL rows.
+    assert "several interfaces" in md
+    assert f"- `provider_api`: `{gw}/bedrock` (`MODEL` = `voxtral`)" in md
+    assert f"- `converse_api`: `{gw}/bedrock-runtime/model/voxtral`" in md
+    # Each channel calls its own interface, converse pinned via @converse.
+    assert f"- Call at: `{gw}/bedrock`" in md
+    assert f"- Call at: `{gw}/bedrock-runtime/model/voxtral@converse`" in md
+    # The wrong pairings must not appear.
+    assert f"- Call at: `{gw}/bedrock-runtime/model/voxtral`\n" not in md
+    assert f"- Call at: `{gw}/bedrock@converse`" not in md
+
+
+def test_undeclared_channels_list_every_interface() -> None:
+    """Without applicable_interfaces every shared interface stays applicable."""
+    md = render_access_plan(
+        _plan(
+            interfaces=[
+                {"name": "a", "base_url": "https://gw/one"},
+                {"name": "b", "base_url": "https://gw/two"},
+            ],
+            channels=[
+                _channel(name="x", channel_type="managed"),
+                _channel(name="y", channel_type="byok", selector="@y"),
+            ],
+        )
+    )
+    assert "- Call at: `https://gw/one`" in md
+    assert "- Call at: `https://gw/two`" in md
+    assert "- Call at: `https://gw/one@y`" in md
+    assert "- Call at: `https://gw/two@y`" in md
+
+
+def test_secrets_plus_enrollment_calls_out_both_steps() -> None:
+    """unitysvc#1813 separation: enrolling never collects secrets, so a channel
+    needing both must say both are required."""
+    md = render_access_plan(
+        _plan(
+            enrollment_mode="required",
+            channels=[
+                _channel(
+                    name="plus",
+                    channel_type="enrollable",
+                    requires_enrollment=True,
+                    required_secrets=[{"name": "RELAY_PASSWORD"}],
+                )
+            ],
+        )
+    )
+    assert "Two separate steps are required" in md
+    assert "enrolling alone is not enough" in md
+
+
+def test_enrollment_without_secrets_stays_quiet() -> None:
+    md = render_access_plan(
+        _plan(
+            enrollment_mode="required",
+            channels=[_channel(name="plus", channel_type="enrollable", requires_enrollment=True)],
+        )
+    )
+    assert "Two separate steps" not in md
