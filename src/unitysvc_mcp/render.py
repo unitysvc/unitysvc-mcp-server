@@ -94,18 +94,96 @@ def _verb(ch: ChannelPlan, mode: str) -> str | None:
     return None
 
 
-def _channel_field(ch: ChannelPlan, name: str) -> Any:
-    """A ChannelPlan field by name, tolerating an older generated model.
+def _model_field(obj: Any, name: str) -> Any:
+    """A generated-model field by name, tolerating an older generated model.
 
-    Fields the installed SDK's generated model doesn't know yet (its models lag
-    the backend schema) arrive in ``additional_properties`` — read the typed
-    attribute first, then fall back there.
+    Fields the installed SDK's generated models don't know yet (they lag the
+    backend schema) arrive in ``additional_properties`` — read the typed
+    attribute first, then fall back there. Works for any generated model
+    (ChannelPlan, AccessPlan, …).
     """
-    value = getattr(ch, name, None)
-    if value is not None:
+    value = getattr(obj, name, None)
+    if value is not None and value.__class__.__name__ != "Unset":
         return value
-    extra = getattr(ch, "additional_properties", None)
+    extra = getattr(obj, "additional_properties", None)
     return extra.get(name) if isinstance(extra, dict) else None
+
+
+# Human names + docs topics for the well-known request formats (#1789). The
+# topic slug is the agent-side equivalent of the frontend's in-page topic
+# link: read it with ``docs_get_topic`` for the wire contract; the external
+# spec URLs live inside the topic as references.
+_FORMAT_INFO: dict[str, tuple[str, str]] = {
+    "openai": ("OpenAI Chat Completions", "openai-format"),
+    "anthropic": ("Anthropic Messages", "anthropic-format"),
+    "bedrock_converse": ("AWS Bedrock Converse", "converse-format"),
+    "bedrock_invoke": ("AWS Bedrock InvokeModel", "invoke-format"),
+    "msg": ("Msg envelope", "msg-format"),
+}
+
+
+def _string_list(raw: Any) -> list[str]:
+    return [s for s in raw if isinstance(s, str) and s] if isinstance(raw, list) else []
+
+
+def _channel_formats(ch: ChannelPlan, plan: AccessPlan) -> list[str]:
+    """The request format(s) this channel serves, for display (#1828).
+
+    A channel's own ``request_formats`` declaration wins; the service-level
+    ``input_formats`` (identical across channels by definition — e.g. the
+    msg-to-* fleet declares ``["msg"]`` on the offering) is the fallback.
+    """
+    return _string_list(_model_field(ch, "request_formats")) or _string_list(
+        _model_field(plan, "input_formats")
+    )
+
+
+def _pin_redundant(ch: ChannelPlan, siblings: list[ChannelPlan]) -> bool:
+    """Whether this channel's ``@<name>`` pin adds nothing (#1828).
+
+    The gateway detects a request's format and dispatches to a compatible
+    channel on its own, so a channel whose declared formats are disjoint from
+    EVERY sibling's needs no pin. A sibling that declares nothing serves every
+    request — it overlaps everything, so the pin stays.
+    """
+    mine = _string_list(_model_field(ch, "request_formats"))
+    if not mine:
+        return False
+    for sib in siblings:
+        if _str(getattr(sib, "name", None)) == _str(getattr(ch, "name", None)):
+            continue
+        theirs = _string_list(_model_field(sib, "request_formats"))
+        if not theirs or any(f in mine for f in theirs):
+            return False
+    return True
+
+
+def _format_line(formats: list[str], pin_redundant: bool) -> str:
+    """`Request format: <name> (docs topic: <slug>)`, raw code when unknown."""
+    parts = []
+    for f in formats:
+        info = _FORMAT_INFO.get(f)
+        parts.append(f"{info[0]} (docs topic: `{info[1]}`)" if info else f"`{f}`")
+    line = "Request format: " + ", ".join(parts)
+    if pin_redundant:
+        line += " — requests in this format are routed here automatically."
+    return line
+
+
+def _routing_pair_bullets(routing_key: Any, urls: list[str]) -> list[str]:
+    """Body-field bullets for an interface's routing-key pairs (#1828).
+
+    A URL alone is not callable — the pairs say what the request body must
+    carry. Pairs whose value is already embedded in a URL path are skipped
+    (repeating them would read as a second requirement), as are template
+    values (``{{ … }}``).
+    """
+    bullets = []
+    for k, v in _dict(routing_key).items():
+        if not isinstance(v, str) or "{{" in v or any(v in u for u in urls):
+            continue
+        bullets.append(f'- include `"{k}": "{v}"` in the request body')
+    return bullets
 
 
 def _applicable_interface_names(ch: ChannelPlan) -> list[str] | None:
@@ -114,7 +192,7 @@ def _applicable_interface_names(ch: ChannelPlan) -> list[str] | None:
     Instruction-only channel↔interface pairing; ``None`` means undeclared, in
     which case every shared interface stays applicable.
     """
-    raw = _channel_field(ch, "applicable_interfaces")
+    raw = _model_field(ch, "applicable_interfaces")
     if not isinstance(raw, list):
         return None
     names = [n for n in raw if isinstance(n, str) and n]
@@ -122,14 +200,18 @@ def _applicable_interface_names(ch: ChannelPlan) -> list[str] | None:
 
 
 def _channel_call_lines(
-    ch: ChannelPlan, interfaces: list[Any], mode: str, multi: bool
+    ch: ChannelPlan, interfaces: list[Any], mode: str, multi: bool, pin_redundant: bool = False
 ) -> list[str]:
     """Per-channel "Call at" lines for a direct channel (unitysvc#1825).
 
     Composed from the channel's applicable interfaces (declared, or every
-    shared interface when undeclared), with the ``@<channel>`` pin appended.
-    Suppressed for the lone-channel/undeclared case — the Endpoint section
-    already says it — and for enrollable channels, whose URL is per-enrollment.
+    shared interface when undeclared), with the ``@<channel>`` pin embedded
+    where it is genuinely the only address for the channel — never explained,
+    and dropped entirely when format-based dispatch makes it redundant
+    (#1828). Each URL carries its interface's body-field pairs, since a URL
+    alone is not callable. Suppressed for the lone-channel/undeclared case —
+    the Endpoint section already says it — and for enrollable channels, whose
+    URL is per-enrollment.
     """
     if ch.requires_enrollment is True or mode == "required":
         return []
@@ -141,9 +223,13 @@ def _channel_call_lines(
         pool = [i for i in pool if _str(getattr(i, "name", None)) in names]
     if not pool:
         return []
-    sel = _str(_channel_field(ch, "selector")) or ""
-    note = f" (the `{sel}` suffix pins this channel)" if sel else ""
-    return [f"- Call at: `{_str(i.base_url)}{sel}`{note}" for i in pool]
+    sel = "" if pin_redundant else (_str(_model_field(ch, "selector")) or "")
+    lines = []
+    for i in pool:
+        url = f"{_str(i.base_url)}{sel}"
+        lines.append(f"- Call at: `{url}`")
+        lines += _routing_pair_bullets(getattr(i, "routing_key", None), [url])
+    return lines
 
 
 def _secret_bullets(
@@ -209,24 +295,26 @@ def render_access_plan(plan: AccessPlan, *, context: RenderContext | None = None
             )
             for iface in urled:
                 name = _str(getattr(iface, "name", None))
-                url = _str(iface.base_url)
+                url = _str(iface.base_url) or ""
                 line = f"- `{name}`: `{url}`" if name else f"- `{url}`"
+                # A URL alone is not callable (#1828): state the body fields
+                # inline, skipping any value already embedded in the URL path.
                 routing = ", ".join(
-                    f"`{str(k).upper()}` = `{v}`" for k, v in _dict(iface.routing_key).items()
+                    b.removeprefix("- ") for b in _routing_pair_bullets(iface.routing_key, [url])
                 )
                 if routing:
                     line += f" ({routing})"
                 out.append(line)
         else:
-            rows: list[tuple[str, str]] = []
+            rows: list[str] = []
             for iface in plan_interfaces:
                 base_url = _str(iface.base_url)
                 if base_url:
-                    rows.append(("SERVICE_BASE_URL", base_url))
-                rows += [(str(k).upper(), str(v)) for k, v in _dict(iface.routing_key).items()]
+                    rows.append(f"- `SERVICE_BASE_URL` = `{base_url}`")
+                rows += _routing_pair_bullets(iface.routing_key, [base_url or ""])
             if rows:
                 out.append("Call the service at:")
-                out += [f"- `{key}` = `{value}`" for key, value in rows]
+                out += rows
             else:
                 out.append("Call the service at its gateway interface.")
     elif context is not None and context.enrollment_urls:
@@ -244,6 +332,12 @@ def render_access_plan(plan: AccessPlan, *, context: RenderContext | None = None
                 out += ["", f"### {_str(ch.name) or ''}"]
             verb = _verb(ch, mode)
             out.append(f"{_price(ch)}." + (f" {verb}" if verb else ""))
+            # The wire contract this channel accepts (#1828): its own
+            # request_formats, else the service-level input_formats.
+            formats = _channel_formats(ch, plan)
+            pin_redundant = _pin_redundant(ch, channels)
+            if formats:
+                out.append(_format_line(formats, pin_redundant))
             # Secrets and enrollment are separate prerequisites (unitysvc#1813):
             # enrolling never collects secrets, so a channel needing both must
             # say so or "Enroll" reads like the whole story.
@@ -255,6 +349,6 @@ def render_access_plan(plan: AccessPlan, *, context: RenderContext | None = None
                 )
             out += _secret_bullets("Secrets to set:", _list(ch.required_secrets), set_names)
             out += _secret_bullets("Optional secrets:", _list(ch.optional_secrets), set_names)
-            out += _channel_call_lines(ch, plan_interfaces, mode, multi)
+            out += _channel_call_lines(ch, plan_interfaces, mode, multi, pin_redundant)
 
     return "\n".join(out).strip() + "\n"
