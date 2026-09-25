@@ -79,17 +79,37 @@ def _price(ch: ChannelPlan) -> str:
     return "Paid"
 
 
+# ``channel_type`` in BOTH vocabularies (unitysvc#2478). The platform renamed
+# ``managed``/``byok``/``byoe`` to ``unbound``/``secret_bound``/``enrollable``,
+# but this server reads whichever deployment it is pointed at, and they migrate
+# independently — production still emits the old names while staging emits the
+# new ones. Understanding only one set silently drops the verb for every channel
+# on the other, so both stay here until no reachable deployment emits the old
+# names.
+#
+# ``byok`` and ``byoe`` both map to ``secret_bound``: the rename collapsed them
+# because a customer-supplied endpoint is itself a secret, and the distinction
+# was never derivable from config (unitysvc#2478 deleted the test that tried).
+_SECRET_BOUND = frozenset({"secret_bound", "byok", "byoe"})
+_UNBOUND = frozenset({"unbound", "managed"})
+
+
 def _verb(ch: ChannelPlan, mode: str) -> str | None:
-    """One-line "what this channel needs" — suppressed under a whole-service gate."""
+    """One-line "what this channel needs" — suppressed under a whole-service gate.
+
+    This doubles as the fallback when a seller wrote no channel ``description``:
+    it is keyed on the channel TYPE, which is always accurate, where a name-keyed
+    default would not be (``gateway`` alone spans three types across services).
+    """
     channel_type = _str(ch.channel_type)
-    if channel_type == "byok":
-        return "Bring your own key."
-    if channel_type == "byoe":
-        return "Bring your own endpoint."
+    if channel_type in _SECRET_BOUND:
+        # Deliberately not "your own key": ``secret_bound`` covers a credential,
+        # an endpoint, or both, and the channel cannot say which.
+        return "Set your own secrets to use it."
     under_gate = mode == "required"
     if ch.requires_enrollment is True and not under_gate:
         return "Enroll to access."
-    if not under_gate and not _list(ch.required_secrets):
+    if not under_gate and (channel_type in _UNBOUND or not _list(ch.required_secrets)):
         return "Use it directly."
     return None
 
@@ -330,8 +350,23 @@ def render_access_plan(plan: AccessPlan, *, context: RenderContext | None = None
         for ch in channels:
             if multi:
                 out += ["", f"### {_str(ch.name) or ''}"]
-            verb = _verb(ch, mode)
-            out.append(f"{_price(ch)}." + (f" {verb}" if verb else ""))
+            # The seller's own words for this channel win over the derived
+            # verb (unitysvc#2478 follow-up). The channel NAME is a
+            # seller-chosen string this renderer prints raw as the heading, so
+            # after the vocabulary rename `### byok` arrived with nothing
+            # explaining it; a description is how that meaning comes back, and
+            # it is more specific than anything derivable from the type.
+            #
+            # Read via _model_field: the installed SDK's generated ChannelPlan
+            # predates this field, so it arrives in additional_properties.
+            # Stripped here rather than in ``_str``, whose "non-empty string"
+            # contract fifteen other call sites rely on: a whitespace-only
+            # description must fall back to the verb, not print a blank. The
+            # backend already trims, but this field arrives through
+            # additional_properties from whichever deployment is configured.
+            described = _str(_model_field(ch, "description"))
+            said = (described.strip() if described else None) or _verb(ch, mode)
+            out.append(f"{_price(ch)}." + (f" {said}" if said else ""))
             # The wire contract this channel accepts (#1828): its own
             # request_formats, else the service-level input_formats.
             formats = _channel_formats(ch, plan)
