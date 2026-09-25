@@ -104,17 +104,71 @@ def test_price_priority_numeric_and_paid_fallback() -> None:
     assert "Paid." in paid
 
 
-def test_byok_and_byoe_verbs() -> None:
+def test_the_secret_bound_verb_in_both_vocabularies() -> None:
+    """unitysvc#2478 renamed the types; deployments migrate independently.
+
+    This server reads whichever backend it is pointed at, and production still
+    emits ``byok``/``byoe`` while staging emits ``secret_bound``. Understanding
+    only one set would silently drop the verb for every channel on the other.
+
+    The wording no longer says "your own key": the rename collapsed byok and
+    byoe precisely because a customer-supplied endpoint is itself a secret, so
+    the channel cannot say which it wants.
+    """
     md = render_access_plan(
         _plan(
             channels=[
+                _channel(name="new", channel_type="secret_bound"),
                 _channel(name="k", channel_type="byok"),
                 _channel(name="e", channel_type="byoe"),
             ]
         )
     )
-    assert "Bring your own key." in md
-    assert "Bring your own endpoint." in md
+    assert md.count("Set your own secrets to use it.") == 3
+    assert "Bring your own key." not in md
+
+
+def test_the_direct_verb_in_both_vocabularies() -> None:
+    md = render_access_plan(
+        _plan(
+            channels=[
+                _channel(name="old", channel_type="managed"),
+                _channel(name="new", channel_type="unbound"),
+            ]
+        )
+    )
+    assert md.count("Use it directly.") == 2
+
+
+def test_a_seller_description_replaces_the_derived_verb() -> None:
+    """The channel NAME is printed raw as the heading, so after the rename a
+    reader met ``### byok`` with nothing explaining it. A seller description is
+    how that meaning comes back, and it beats anything derived from the type."""
+    md = render_access_plan(
+        _plan(
+            channels=[
+                _channel(
+                    name="byok",
+                    channel_type="secret_bound",
+                    description="Bring a key from the Acme console.",
+                )
+            ]
+        )
+    )
+    assert "Bring a key from the Acme console." in md
+    assert "Set your own secrets to use it." not in md
+
+
+def test_the_verb_still_shows_when_no_description_is_written() -> None:
+    md = render_access_plan(_plan(channels=[_channel(name="byok", channel_type="secret_bound")]))
+    assert "Set your own secrets to use it." in md
+
+
+def test_a_blank_description_falls_back_rather_than_rendering_empty() -> None:
+    md = render_access_plan(
+        _plan(channels=[_channel(name="byok", channel_type="secret_bound", description="   ")])
+    )
+    assert "Set your own secrets to use it." in md
 
 
 def test_required_and_optional_secrets_with_default() -> None:
