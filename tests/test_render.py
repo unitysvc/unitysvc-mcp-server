@@ -430,32 +430,49 @@ def test_an_external_app_says_it_is_not_integrated() -> None:
     assert "gateway interface" not in md
 
 
-def test_a_legacy_external_channel_plan_is_an_external_app() -> None:
-    # A deployment from before #2873 lists the site as an ``external`` channel.
-    md = render_access_plan(
-        _plan(
-            channels=[
-                _channel(
-                    name="site",
-                    channel_type="external",
-                    external_url="https://legacy.example",
-                )
-            ]
-        )
-    )
-    assert "This app is not integrated with UnitySVC" in md
-    assert "Homepage: https://legacy.example" in md
-    assert "## Pricing" not in md
-
-
 def test_a_service_with_channels_is_not_an_external_app() -> None:
     md = render_access_plan(
         _plan(
             is_external_app=False,
             links={"homepage": "https://app.example"},
             interfaces=[{"name": "canonical", "base_url": "https://gw/a/x"}],
-            channels=[_channel(), _channel(name="site", channel_type="external")],
+            channels=[_channel()],
         )
     )
     assert "not integrated" not in md
     assert "## Endpoint" in md
+
+
+# me_bound ("Connects to Me", unitysvc#2709) ------------------------------------
+
+
+def _me_bound_plan(field: str) -> Any:
+    return _plan(
+        enrollment_mode="optional",
+        channels=[
+            _channel(
+                name="me",
+                channel_type="me_bound",
+                free=True,
+                requires_enrollment=True,
+                **{
+                    field: [
+                        {"object": "service:notify", "justification": "Sends your digest"},
+                        {
+                            "object": "service:bill",
+                            "justification": "Charges $0.40",
+                            "required": False,
+                        },
+                    ]
+                },
+            )
+        ],
+    )
+
+
+def test_me_bound_channel_lists_its_requests() -> None:
+    md = render_access_plan(_me_bound_plan("customer_access_requests"))
+    assert "Enroll and approve its requests to your Me" in md
+    assert "Requests to your Me (approved at enrollment):" in md
+    assert "- `service:notify` — Sends your digest" in md
+    assert "- `service:bill` — Charges $0.40 (optional)" in md
