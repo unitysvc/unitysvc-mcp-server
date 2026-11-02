@@ -119,3 +119,16 @@ def test_endpoints_prefers_the_live_enrollment_url() -> None:
     out = commands.render_endpoints("svc-1", plan, ctx)
 
     assert "https://gw.test/e/CODE" in out
+
+
+def test_an_external_app_has_no_commands() -> None:
+    # unitysvc#2873: used at its own site, so nothing to set, enroll or call.
+    plan = _plan(is_external_app=True, links={"homepage": "https://digest.example"})
+    ctx = RenderContext(set_secret_names=frozenset(), enrollment_urls=[])
+    for render in (commands.render_cli, commands.render_sdk, commands.render_endpoints):
+        md = render("svc-1", plan, ctx)
+        assert "This app is not integrated with UnitySVC" in md
+        assert "Homepage: https://digest.example" in md
+        assert "dispatch" not in md
+        assert "curl" not in md
+        assert "enrollments.create" not in md
