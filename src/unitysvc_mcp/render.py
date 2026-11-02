@@ -92,6 +92,12 @@ def _price(ch: ChannelPlan) -> str:
 # was never derivable from config (unitysvc#2478 deleted the test that tried).
 _SECRET_BOUND = frozenset({"secret_bound", "byok", "byoe"})
 _UNBOUND = frozenset({"unbound", "managed"})
+# ``me_bound`` ("Connects to Me", unitysvc#2709): an enrollment whose approved
+# requests (``customer_access_requests``) let the service work with the caller's
+# Me. The field is newer than the installed SDK's ChannelPlan, so it is read
+# through ``_model_field``. (There is no ``external`` channel type: an external
+# app declares no channel, see :func:`is_external_app`, unitysvc#2873.)
+_ME_BOUND = "me_bound"
 
 
 def _verb(ch: ChannelPlan, mode: str) -> str | None:
@@ -102,6 +108,8 @@ def _verb(ch: ChannelPlan, mode: str) -> str | None:
     default would not be (``gateway`` alone spans three types across services).
     """
     channel_type = _str(ch.channel_type)
+    if channel_type == _ME_BOUND and mode != "required":
+        return "Enroll and approve its requests to your Me (listed below)."
     if channel_type in _SECRET_BOUND:
         # Deliberately not "your own key": ``secret_bound`` covers a credential,
         # an endpoint, or both, and the channel cannot say which.
@@ -275,6 +283,26 @@ def _secret_bullets(
     return lines
 
 
+def _grant_bullets(ch: ChannelPlan) -> list[str]:
+    """What a ``me_bound`` channel asks to do with the caller's Me, with the
+    seller's justification for each (unitysvc#2709)."""
+    raw = _model_field(ch, "customer_access_requests")
+    grants = [g for g in _list(raw) if isinstance(g, dict)]
+    if not grants:
+        return []
+    lines = ["Requests to your Me (approved at enrollment):"]
+    for grant in grants:
+        obj = _str(grant.get("object"))
+        why = _str(grant.get("justification"))
+        text = f"- `{obj}`" if obj else "-"
+        if why:
+            text += f" — {why}" if obj else f" {why}"
+        if grant.get("required") is False:
+            text += " (optional)"
+        lines.append(text)
+    return lines
+
+
 # What an agent is told about an external app (unitysvc#2873).
 EXTERNAL_APP_NOTE = (
     "This app is not integrated with UnitySVC. It is accessible only through its "
@@ -287,28 +315,15 @@ def is_external_app(plan: AccessPlan) -> bool:
     """Whether the service is an external app (unitysvc#2873).
 
     An external app declares no channel: customers use it at its own site, not
-    through UnitySVC. The plan says so in ``is_external_app``. A deployment
-    from before #2873 instead lists one ``external`` channel per site, so a
-    plan whose channels are all ``external`` counts too.
+    through UnitySVC. The plan says so in ``is_external_app``.
     """
-    if _model_field(plan, "is_external_app") is True:
-        return True
-    channels = _list(plan.channels)
-    return bool(channels) and all(_str(ch.channel_type) == "external" for ch in channels)
+    return _model_field(plan, "is_external_app") is True
 
 
 def external_app_homepage(plan: AccessPlan) -> str | None:
-    """An external app's homepage: ``links.homepage``, or, from a deployment
-    before #2873, its first ``external`` channel's ``external_url``."""
-    links = _dict(_model_field(plan, "links"))
-    homepage = links.get("homepage")
-    if isinstance(homepage, str) and homepage:
-        return homepage
-    for ch in _list(plan.channels):
-        url = _str(_model_field(ch, "external_url"))
-        if url:
-            return url
-    return None
+    """An external app's homepage, ``links.homepage``."""
+    homepage = _dict(_model_field(plan, "links")).get("homepage")
+    return homepage if isinstance(homepage, str) and homepage else None
 
 
 def _render_external_app(plan: AccessPlan) -> str:
@@ -431,6 +446,7 @@ def render_access_plan(plan: AccessPlan, *, context: RenderContext | None = None
                 )
             out += _secret_bullets("Secrets to set:", _list(ch.required_secrets), set_names)
             out += _secret_bullets("Optional secrets:", _list(ch.optional_secrets), set_names)
+            out += _grant_bullets(ch)
             out += _channel_call_lines(ch, plan_interfaces, mode, multi, pin_redundant)
 
     return "\n".join(out).strip() + "\n"
