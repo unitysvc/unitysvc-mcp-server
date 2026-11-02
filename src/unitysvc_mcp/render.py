@@ -275,12 +275,59 @@ def _secret_bullets(
     return lines
 
 
+# What an agent is told about an external app (unitysvc#2873).
+EXTERNAL_APP_NOTE = (
+    "This app is not integrated with UnitySVC. It is accessible only through its "
+    "own URL or app stores: there is nothing to enroll in, no secret to set and "
+    "no UnitySVC endpoint to call."
+)
+
+
+def is_external_app(plan: AccessPlan) -> bool:
+    """Whether the service is an external app (unitysvc#2873).
+
+    An external app declares no channel: customers use it at its own site, not
+    through UnitySVC. The plan says so in ``is_external_app``. A deployment
+    from before #2873 instead lists one ``external`` channel per site, so a
+    plan whose channels are all ``external`` counts too.
+    """
+    if _model_field(plan, "is_external_app") is True:
+        return True
+    channels = _list(plan.channels)
+    return bool(channels) and all(_str(ch.channel_type) == "external" for ch in channels)
+
+
+def external_app_homepage(plan: AccessPlan) -> str | None:
+    """An external app's homepage: ``links.homepage``, or, from a deployment
+    before #2873, its first ``external`` channel's ``external_url``."""
+    links = _dict(_model_field(plan, "links"))
+    homepage = links.get("homepage")
+    if isinstance(homepage, str) and homepage:
+        return homepage
+    for ch in _list(plan.channels):
+        url = _str(_model_field(ch, "external_url"))
+        if url:
+            return url
+    return None
+
+
+def _render_external_app(plan: AccessPlan) -> str:
+    out = ["# How to use this service", "", EXTERNAL_APP_NOTE]
+    homepage = external_app_homepage(plan)
+    if homepage:
+        out += ["", f"Homepage: {homepage}"]
+    return "\n".join(out) + "\n"
+
+
 def render_access_plan(plan: AccessPlan, *, context: RenderContext | None = None) -> str:
     """Render an :class:`AccessPlan` to markdown for an agent to read.
 
     With ``context`` (a ``customer_*`` call), secrets are marked (set)/(not set)
     and the caller's live ``/e/<CODE>`` URLs replace the generic enroll hint.
+    An external app (:func:`is_external_app`) only says where it is used.
     """
+    if is_external_app(plan):
+        return _render_external_app(plan)
     mode = plan.enrollment_mode if isinstance(plan.enrollment_mode, str) else "disallowed"
     set_names = context.set_secret_names if context is not None else None
     channels = _list(plan.channels)

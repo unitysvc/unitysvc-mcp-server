@@ -67,6 +67,9 @@ when the matching key is configured.
      canonical service URL, an enrollment-specific URL, or a generic
      `/e/<CODE>`), which differ in their limits — the access guide gives the
      one to use.
+   Some listings are **external apps**: they are not integrated with UnitySVC
+   and are used only through their own URL or app stores. The access guide
+   says so and gives the homepage; there is nothing to call through UnitySVC.
 4. Underneath, a call is just an authenticated request to the service's gateway
    base_url (your key goes in any of several accepted auth headers, so common
    SDKs work unchanged) — but you rarely need to hand-write that. Prefer the

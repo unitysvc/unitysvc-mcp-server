@@ -16,7 +16,7 @@ from unitysvc import AccessPlan, Client
 from unitysvc.cli import app as _cli_app
 
 from . import introspect
-from .render import RenderContext
+from .render import EXTERNAL_APP_NOTE, RenderContext, external_app_homepage, is_external_app
 
 _SDK_RESOURCES = ("groups", "services", "secrets", "enrollments")
 
@@ -118,7 +118,18 @@ def endpoints_overview() -> str:
 # --- per-service command sequences -----------------------------------------
 
 
+def _external_app(title: str, plan: AccessPlan) -> str:
+    """An external app has nothing to set, enroll in or call (unitysvc#2873)."""
+    out = [title, "", EXTERNAL_APP_NOTE]
+    homepage = external_app_homepage(plan)
+    if homepage:
+        out += ["", f"Homepage: {homepage}"]
+    return "\n".join(out) + "\n"
+
+
 def render_cli(service_id: str, plan: AccessPlan, context: RenderContext) -> str:
+    if is_external_app(plan):
+        return _external_app("# Use this service from the `usvc` CLI", plan)
     out = ["# Use this service from the `usvc` CLI", ""]
     unset = _unset_required_secrets(plan, context.set_secret_names)
     if unset:
@@ -133,6 +144,8 @@ def render_cli(service_id: str, plan: AccessPlan, context: RenderContext) -> str
 
 
 def render_sdk(service_id: str, plan: AccessPlan, context: RenderContext) -> str:
+    if is_external_app(plan):
+        return _external_app("# Use this service from Python (unitysvc-py)", plan)
     lines = ["from unitysvc import Client", "", "client = Client()  # UNITYSVC_API_KEY from env"]
     for name in _unset_required_secrets(plan, context.set_secret_names):
         lines.append(f'client.secrets.set("{name}", value="...")')
@@ -144,6 +157,8 @@ def render_sdk(service_id: str, plan: AccessPlan, context: RenderContext) -> str
 
 
 def render_endpoints(service_id: str, plan: AccessPlan, context: RenderContext) -> str:
+    if is_external_app(plan):
+        return _external_app("# Call this service over raw HTTP", plan)
     out = ["# Call this service over raw HTTP", ""]
     url = _endpoint_url(plan, context)
     if url is None:

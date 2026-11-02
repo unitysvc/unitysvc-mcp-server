@@ -410,3 +410,52 @@ def test_unknown_format_renders_as_raw_code() -> None:
         )
     )
     assert "Request format: `x-acme`" in md
+
+
+# External apps (unitysvc#2873) ------------------------------------------------
+
+
+def test_an_external_app_says_it_is_not_integrated() -> None:
+    # Fields the installed SDK's AccessPlan predates arrive in
+    # additional_properties, as from a current backend.
+    md = render_access_plan(
+        _plan(
+            is_external_app=True,
+            links={"homepage": "https://digest.example", "docs": "https://digest.example/docs"},
+        )
+    )
+    assert "This app is not integrated with UnitySVC" in md
+    assert "Homepage: https://digest.example" in md
+    assert "## Endpoint" not in md
+    assert "gateway interface" not in md
+
+
+def test_a_legacy_external_channel_plan_is_an_external_app() -> None:
+    # A deployment from before #2873 lists the site as an ``external`` channel.
+    md = render_access_plan(
+        _plan(
+            channels=[
+                _channel(
+                    name="site",
+                    channel_type="external",
+                    external_url="https://legacy.example",
+                )
+            ]
+        )
+    )
+    assert "This app is not integrated with UnitySVC" in md
+    assert "Homepage: https://legacy.example" in md
+    assert "## Pricing" not in md
+
+
+def test_a_service_with_channels_is_not_an_external_app() -> None:
+    md = render_access_plan(
+        _plan(
+            is_external_app=False,
+            links={"homepage": "https://app.example"},
+            interfaces=[{"name": "canonical", "base_url": "https://gw/a/x"}],
+            channels=[_channel(), _channel(name="site", channel_type="external")],
+        )
+    )
+    assert "not integrated" not in md
+    assert "## Endpoint" in md
