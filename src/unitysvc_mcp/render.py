@@ -347,8 +347,7 @@ def _export_lines(plan: AccessPlan) -> list[str]:
     out = [
         "",
         "## Permissions & operations",
-        "When granting another service access, choose the permissions for the operations it needs. "
-        "Routes are relative to this service's URL.",
+        "Each operation requires its listed permission. Routes are relative to this service's URL.",
     ]
     for name, routes in permissions.items():
         operations = ", ".join(f"`{route}`" for route in _string_list(routes))
