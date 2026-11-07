@@ -11,6 +11,7 @@ are set, live ``/e/<CODE>`` URLs) needs a customer key and is a follow-up.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -122,7 +123,7 @@ def _verb(ch: ChannelPlan, mode: str) -> str | None:
     return None
 
 
-def _model_field(obj: Any, name: str) -> Any:
+def _model_field(obj: Any, name: str, default: Any = None) -> Any:
     """A generated-model field by name, tolerating an older generated model.
 
     Fields the installed SDK's generated models don't know yet (they lag the
@@ -130,11 +131,11 @@ def _model_field(obj: Any, name: str) -> Any:
     attribute first, then fall back there. Works for any generated model
     (ChannelPlan, AccessPlan, …).
     """
-    value = getattr(obj, name, None)
-    if value is not None and value.__class__.__name__ != "Unset":
+    value = getattr(obj, name, default)
+    if value is not default and value.__class__.__name__ != "Unset":
         return value
     extra = getattr(obj, "additional_properties", None)
-    return extra.get(name) if isinstance(extra, dict) else None
+    return extra.get(name, default) if isinstance(extra, dict) else default
 
 
 # Human names + docs topics for the well-known request formats (#1789). The
@@ -334,6 +335,31 @@ def _render_external_app(plan: AccessPlan) -> str:
     return "\n".join(out) + "\n"
 
 
+def _export_lines(plan: AccessPlan) -> list[str]:
+    """Read exports through additional_properties until the SDK gains the field."""
+    missing = object()
+    declared = _model_field(plan, "exports", missing)
+    if declared is missing:
+        # Older backends omit the field; that is unknown, not implicit invoke.
+        return []
+    exports = _dict(declared)
+    permissions = _dict(exports.get("permissions", {"invoke": ["* /*"]}))
+    out = [
+        "",
+        "## Permissions & operations",
+        "Each operation requires its listed permission. Routes are relative to this service's URL.",
+    ]
+    for name, routes in permissions.items():
+        operations = ", ".join(f"`{route}`" for route in _string_list(routes))
+        out.append(f"- `{name}`: {operations}")
+    options = _dict(exports.get("options"))
+    if options:
+        # Preserve every constraint (enum, defaults, bounds, required fields),
+        # including future schema keywords, instead of a lossy field summary.
+        out += ["", "### Grant options", "```json", json.dumps(options, indent=2), "```"]
+    return out
+
+
 def render_access_plan(plan: AccessPlan, *, context: RenderContext | None = None) -> str:
     """Render an :class:`AccessPlan` to markdown for an agent to read.
 
@@ -347,6 +373,7 @@ def render_access_plan(plan: AccessPlan, *, context: RenderContext | None = None
     set_names = context.set_secret_names if context is not None else None
     channels = _list(plan.channels)
     out: list[str] = ["# How to use this service"]
+    out += _export_lines(plan)
 
     # Enrollment — only when the service needs it.
     if mode != "disallowed":
