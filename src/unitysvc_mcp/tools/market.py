@@ -55,8 +55,9 @@ async def market_service_access(
     Returns a derived, per-channel guide (markdown): which channels the service
     offers, whether each is free or paid, what secrets a customer must set (and
     how to obtain them), whether enrollment is required and with what
-    parameters, and how to call it. Synthesized from service metadata, so it
-    needs no credentials. Use market_service_example for the actual code.
+    parameters, exported permissions and operations, grant options, and how to
+    call it. Synthesized from service metadata, so it needs no credentials.
+    Use market_service_example for the actual code.
     """
     return await app(ctx).customer_api.service_usage(service_id)
 

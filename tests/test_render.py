@@ -476,3 +476,43 @@ def test_me_bound_channel_lists_its_requests() -> None:
     assert "Requests to your Me (approved at enrollment):" in md
     assert "- `service:notify` — Sends your digest" in md
     assert "- `service:bill` — Charges $0.40 (optional)" in md
+
+
+def test_exports_from_wire_show_permissions_routes_and_option_constraints() -> None:
+    md = render_access_plan(
+        _plan(
+            channels=[_channel()],
+            exports={
+                "permissions": {"read": ["GET /"], "write": ["POST /", "DELETE /records/*"]},
+                "options": {
+                    "type": "object",
+                    "required": ["log_level"],
+                    "properties": {
+                        "log_level": {
+                            "type": "string",
+                            "enum": ["debug", "info", "warn", "error"],
+                            "default": "debug",
+                            "description": "Lowest level recorded",
+                        }
+                    },
+                },
+            },
+        )
+    )
+    assert "## Permissions & operations" in md
+    assert "`read`: `GET /`" in md
+    assert "`write`: `POST /`, `DELETE /records/*`" in md
+    assert "`invoke`" not in md
+    assert '"log_level"' in md and '"default": "debug"' in md
+    assert '"required"' in md and "Lowest level recorded" in md
+
+
+def test_implicit_exports_also_apply_to_options_only_declarations() -> None:
+    for exports in (None, {}, {"options": {"type": "object", "properties": {}}}):
+        md = render_access_plan(_plan(channels=[_channel()], exports=exports))
+        assert "`invoke`: `* /*`" in md
+
+
+def test_older_backend_does_not_invent_permissions() -> None:
+    md = render_access_plan(_plan(channels=[_channel()]))
+    assert "Permissions & operations" not in md
